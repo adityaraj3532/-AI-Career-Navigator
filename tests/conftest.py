@@ -19,6 +19,7 @@ from app.models.assessment import (
 )
 from app.models.auth import PasswordResetToken, RefreshToken
 from app.models.profile import StudentProfile
+from app.models.portfolio import UserPortfolio
 from app.models.adaptive_test import (
     TestQuestionBank,
     TestAttempt,
@@ -980,12 +981,16 @@ class InMemoryPortfolioRepo:
         user_skills = [us for us in self.storage.get("user_skills", {}).values() if us.user_id == user_id]
         evidence = [e for e in self.storage.get("skill_evidence", {}).values() if e.user_id == user_id]
         counts: Dict[UUID, int] = {}
+        test_assessed: Set[UUID] = set()
         for e in evidence:
             counts[e.skill_id] = counts.get(e.skill_id, 0) + 1
+            if getattr(e, "source_type", None) == "test":
+                test_assessed.add(e.skill_id)
 
         for us in user_skills:
             sk = self.storage.get("skills", {}).get(us.skill_id)
             if sk:
+                prov = "test_assessed" if us.skill_id in test_assessed else "self_reported"
                 res.append(
                     PortfolioSkillItem(
                         skill_id=us.skill_id,
@@ -994,6 +999,7 @@ class InMemoryPortfolioRepo:
                         current_level=us.current_level,
                         confidence=us.confidence,
                         evidence_count=counts.get(us.skill_id, 0),
+                        provenance=prov,
                         updated_at=us.updated_at,
                     )
                 )
@@ -1070,6 +1076,25 @@ class InMemoryPortfolioRepo:
                 )
         res.sort(key=lambda x: (x.completed_at or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
         return res
+
+    async def get_user_portfolio(self, user_id: UUID) -> Optional[UserPortfolio]:
+        for p in self.storage.get("user_portfolios", {}).values():
+            if p.user_id == user_id:
+                return p
+        return None
+
+    async def get_portfolio_by_slug(self, slug: str) -> Optional[UserPortfolio]:
+        clean = slug.strip().lower()
+        for p in self.storage.get("user_portfolios", {}).values():
+            if (p.slug or "").lower() == clean:
+                return p
+        return None
+
+    async def save_user_portfolio(self, portfolio: UserPortfolio) -> UserPortfolio:
+        if not getattr(portfolio, "id", None):
+            portfolio.id = uuid4()
+        self.storage.setdefault("user_portfolios", {})[portfolio.id] = portfolio
+        return portfolio
 
     async def get_completed_diagnostic_tests(self, user_id: UUID) -> List[PortfolioDiagnosticTest]:
         res = []
@@ -1289,6 +1314,7 @@ async def test_storage():
         "replan_history": {},
         "exam_cycles": {},
         "recommendation_actions": {},
+        "user_portfolios": {},
     }
 
     # Pre-seed assessment questions

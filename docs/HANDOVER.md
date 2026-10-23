@@ -4,6 +4,54 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Personalized Portfolio: Custom Portfolios, Public Vanity Pages, and Anti-Hallucination AI Text Assistant (Step 1a, Step 1b, Step 2)
+
+### Done
+- **Single Alembic Head & Migration 011**:
+  - Confirmed single head at `010_create_password_reset_tokens`.
+  - Created migration `011_create_user_portfolios.py` adding `user_portfolios` table: `id`, `user_id` (UNIQUE FK), `slug` (UNIQUE, indexed), `is_public` (bool default false), `headline`, `about`, `visibility` (JSONB allowlist default false), `featured_item_ids` (JSONB), `custom_projects` (JSONB), `custom_certificates` (JSONB), `competitions` (JSONB), `achievements` (JSONB), `created_at`, `updated_at`.
+  - Verified `alembic heads` has single head at `011_create_user_portfolios`.
+- **Pydantic Schemas (`app/schemas/portfolio.py`)**:
+  - `PortfolioVisibility`: allowlist booleans per section (`about`, `skills`, `projects`, `certificates`, `competitions`, `achievements`), default `False`.
+  - JSONB section items: `ProjectItem`, `CertificateItem`, `CompetitionItem`, `AchievementItem` with `extra="forbid"`, length caps, max 20 items per list, HTTP/HTTPS link validators, date string validation.
+  - `UpdatePortfolioRequest`: validates optional custom slug (regex `^[a-z0-9]+(-[a-z0-9]+)*$`, 3-40 chars, reserved words list check).
+  - `OwnerPortfolioResponse`: owner view returning persisted state, slug, provenance-partitioned skills (`test_assessed` vs `self_reported`), completed roadmap projects/certificates (labelled `self_reported`), custom items, and `is_persisted` flag.
+  - `PublicPortfolioViewResponse`: separate unauthenticated allowlist projection schema; strips all user IDs, emails, and internal profile fields; sections omitted when `visibility[section] == False`.
+  - `GeneratePortfolioTextRequest` / `GeneratePortfolioTextResponse`: section enum (`about`, `project_description`), max 10 facts $\times$ 200 chars.
+- **Repository & Non-Writing GET Invariant**:
+  - `PortfolioRepository` (`app/repositories/portfolio_repository.py`):
+    - `get_user_skills`: partitioned by provenance (`test_assessed` if valid test evidence exists; else `self_reported`).
+    - `get_user_portfolio`, `get_portfolio_by_slug`, `save_user_portfolio`.
+  - `PortfolioService` (`app/services/portfolio_service.py`):
+    - `GET /v1/portfolio`: **MUST NOT write to DB**. If no row exists, returns computed suggestions from student skills and completed roadmap items with `is_persisted=False`. Row is only created on explicit first PUT.
+    - `PUT /v1/portfolio`: Owner only. Validates custom slug uniqueness (catches 409 Conflict), audit logs slug/visibility changes, persists/updates record.
+    - `GET /v1/portfolio/p/{slug}`: Public unauthenticated view. Returns identical 404 for missing, private (`is_public=False`), or disabled. Sets `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-cache, no-store, must-revalidate`, and enforces IP rate limiting.
+    - `POST /v1/portfolio/generate-text`: Enforces daily per-user rate limit; sanitizes prompt inputs via `portfolio_text_v1.txt`; executes through `LLMGateway`; anti-hallucination post-validator rejects any number, year, or percentage not present in user facts; returns deterministic template fallback when validation fails or gateway offline. User facts are never logged.
+- **Testing & Verification**:
+  - Comprehensive tests in `tests/test_portfolio.py`:
+    - `test_get_portfolio_creates_no_rows`: verifies GET produces zero DB writes and returns `is_persisted=False`.
+    - `test_put_portfolio_persists_row`: verifies first PUT persists row, assigns slug, and sets `is_persisted=True`.
+    - `test_put_portfolio_slug_rules_and_conflict`: validates slug regex, reserved words, and 409 conflict handling.
+    - `test_put_portfolio_validation_limits`: enforces max 20 items, invalid URLs, and `extra="forbid"`.
+    - `test_skills_provenance_labels`: confirms `test_assessed` vs `self_reported` labels.
+    - `test_public_portfolio_privacy_and_headers`: verifies unauthenticated access, 404 for private/missing, header enforcement (`X-Robots-Tag`, `Cache-Control`), and omission of private PII.
+    - `test_public_portfolio_visibility_toggles`: verifies sections disabled in visibility settings are omitted from public payload.
+    - `test_generate_text_grounded_in_facts`: verifies AI output is strictly grounded in input facts and non-persisted.
+    - `test_generate_text_anti_hallucination_rejects_invented_metrics`: validates that invented numbers/percentages trigger the deterministic template fallback.
+  - Full test suite: **140 passed, 1 skipped** (100% pass rate).
+  - Code hygiene: `ruff check app tests` passes cleanly with **0 errors**.
+
+### Active Invariants
+- Zero LLM calls synchronously inside any GET endpoint.
+- `GET /v1/portfolio` strictly non-writing: never commits to DB.
+- Public portfolio `GET /v1/portfolio/p/{slug}` uses strict allowlist schema; identical 404 for missing, private, or disabled.
+- AI generated portfolio text is strictly post-validated for metric hallucinations against user facts.
+- No hand-rolled PDF generation; PDF export deferred until client-side print stylesheet / maintained library decision.
+- Foreign user resources always return HTTP 404 (never 403 or leaky 200).
+- All request schemas enforce `extra="forbid"`.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Complete Resolution of All Deferred Steps Across Entire Codebase
 
 ### Done

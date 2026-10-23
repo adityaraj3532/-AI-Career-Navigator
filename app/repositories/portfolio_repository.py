@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.portfolio import UserPortfolio
 from app.models.adaptive_test import TestAttempt
 from app.models.career import Certificate, Course, Internship
 from app.models.profile import StudentProfile
@@ -41,7 +42,7 @@ class PortfolioRepository:
         if not user_skills:
             return []
 
-        # 2. Evidence count per skill in single grouped query
+        # 2. Evidence count and test provenance per skill in single grouped queries
         skill_ids = [us.skill_id for us in user_skills]
         ev_stmt = (
             select(SkillEvidence.skill_id, func.count(SkillEvidence.id))
@@ -51,11 +52,20 @@ class PortfolioRepository:
         ev_res = await self.session.execute(ev_stmt)
         counts_map: Dict[UUID, int] = dict(ev_res.all())
 
+        test_ev_stmt = (
+            select(SkillEvidence.skill_id)
+            .where(SkillEvidence.user_id == user_id, SkillEvidence.skill_id.in_(skill_ids), SkillEvidence.source_type == "test")
+            .distinct()
+        )
+        test_ev_res = await self.session.execute(test_ev_stmt)
+        test_assessed_skills = set(test_ev_res.scalars().all())
+
         items = []
         for us in user_skills:
             sk: Optional[Skill] = us.skill
             if not sk:
                 continue
+            prov: Any = "test_assessed" if us.skill_id in test_assessed_skills else "self_reported"
             items.append(
                 PortfolioSkillItem(
                     skill_id=us.skill_id,
@@ -64,6 +74,7 @@ class PortfolioRepository:
                     current_level=us.current_level,
                     confidence=us.confidence,
                     evidence_count=counts_map.get(us.skill_id, 0),
+                    provenance=prov,
                     updated_at=us.updated_at,
                 )
             )
@@ -194,3 +205,19 @@ class PortfolioRepository:
                 )
             )
         return tests
+
+    async def get_user_portfolio(self, user_id: UUID) -> Optional[UserPortfolio]:
+        stmt = select(UserPortfolio).where(UserPortfolio.user_id == user_id)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_portfolio_by_slug(self, slug: str) -> Optional[UserPortfolio]:
+        stmt = select(UserPortfolio).where(func.lower(UserPortfolio.slug) == slug.strip().lower())
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def save_user_portfolio(self, portfolio: UserPortfolio) -> UserPortfolio:
+        self.session.add(portfolio)
+        await self.session.flush()
+        await self.session.refresh(portfolio)
+        return portfolio

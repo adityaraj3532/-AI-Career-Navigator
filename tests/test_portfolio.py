@@ -1,11 +1,8 @@
-import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from uuid import uuid4
+import pytest
 from httpx import AsyncClient
 
-from app.models.adaptive_test import TestAttempt
-from app.models.career import Course
-from app.models.roadmap import Roadmap, RoadmapItem
 from app.models.skill import Skill, SkillEvidence, UserSkill
 
 
@@ -31,330 +28,310 @@ async def test_portfolio_unauthenticated(async_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_portfolio_methods_disallowed(async_client: AsyncClient):
-    token = await _signup_and_login(async_client, "portfolio_methods@example.com")
+async def test_get_portfolio_creates_no_rows_and_returns_draft_suggestions(async_client: AsyncClient, test_storage):
+    """GET /v1/portfolio must not write to the database and return is_persisted=False."""
+    token = await _signup_and_login(async_client, "no_write_user@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Portfolio is strictly a read-only aggregation (POST, PUT, DELETE disallowed)
-    post_resp = await async_client.post("/v1/portfolio", json={}, headers=headers)
-    assert post_resp.status_code == 405
-
-    delete_resp = await async_client.delete("/v1/portfolio", headers=headers)
-    assert delete_resp.status_code == 405
-
-
-@pytest.mark.asyncio
-async def test_portfolio_fresh_user_empty(async_client: AsyncClient):
-    token = await _signup_and_login(async_client, "portfolio_fresh@example.com")
-    headers = {"Authorization": f"Bearer {token}"}
+    initial_row_count = len(test_storage.get("user_portfolios", {}))
 
     resp = await async_client.get("/v1/portfolio", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
 
-    # Profile defaults
-    assert data["profile"]["email"] == "portfolio_fresh@example.com"
-    assert data["profile"]["education_level"] == "college"
-    assert data["profile"]["name"] is None
-    assert data["profile"]["subjects_of_interest"] == []
-
-    # Summary all zeros
-    assert data["summary"]["total_skills_tracked"] == 0
-    assert data["summary"]["total_recommendations_completed"] == 0
-    assert data["summary"]["total_milestones_completed"] == 0
-    assert data["summary"]["total_tests_completed"] == 0
-
-    # Lists are empty
-    assert data["skills"] == []
-    assert data["completed_recommendations"] == []
-    assert data["completed_milestones"] == []
-    assert data["diagnostic_tests"] == []
+    # Invariant: GET creates no rows
+    assert len(test_storage.get("user_portfolios", {})) == initial_row_count
+    assert data["is_persisted"] is False
+    assert data["is_public"] is False
+    assert data["slug"].startswith("u-")
+    assert data["visibility"] == {
+        "about": False,
+        "skills": False,
+        "projects": False,
+        "certificates": False,
+        "competitions": False,
+        "achievements": False,
+    }
+    assert data["headline"] is None
+    assert data["about"] is None
 
 
 @pytest.mark.asyncio
-async def test_portfolio_full_aggregation(async_client: AsyncClient, test_storage):
-    token = await _signup_and_login(async_client, "portfolio_full@example.com")
+async def test_put_portfolio_creates_row_and_persists(async_client: AsyncClient, test_storage):
+    """PUT /v1/portfolio creates the row in the database on first save."""
+    token = await _signup_and_login(async_client, "persisted_user@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Retrieve user id from storage
-    user = next(u for u in test_storage["users"].values() if u.email == "portfolio_full@example.com")
-    user_id = user.id
-    now = datetime.now(timezone.utc)
+    payload = {
+        "slug": "jane-developer",
+        "is_public": True,
+        "headline": "Full-Stack Engineer & Systems Specialist",
+        "about": "Passionate developer building high-throughput distributed systems.",
+        "visibility": {
+            "about": True,
+            "skills": True,
+            "projects": True,
+            "certificates": True,
+            "competitions": False,
+            "achievements": False,
+        },
+        "custom_projects": [
+            {
+                "title": "Cloud File Storage",
+                "description": "Built distributed S3-compatible microservice with FastAPI and asyncio.",
+                "skills": ["Python", "FastAPI", "Docker"],
+                "link": "https://github.com/example/storage",
+                "completed_date": "2026-05-15",
+                "provenance": "self_reported",
+            }
+        ],
+        "custom_certificates": [
+            {
+                "title": "AWS Certified Developer",
+                "issuer": "Amazon Web Services",
+                "credential_url": "https://aws.amazon.com/verify/123",
+                "issue_date": "2026-06-01",
+                "provenance": "self_reported",
+            }
+        ],
+        "competitions": [
+            {
+                "title": "National Hackathon 2026",
+                "award_or_rank": "1st Place Winner",
+                "description": "Architected low-latency microservices pipeline.",
+                "year": 2026,
+            }
+        ],
+        "achievements": [
+            {
+                "title": "Dean's Honor List",
+                "description": "Top 1% academic standing in Computer Science.",
+                "date": "2026-04",
+            }
+        ],
+    }
 
-    # 1. Update Profile
-    prof_resp = await async_client.put(
-        "/v1/profile",
+    put_res = await async_client.put("/v1/portfolio", json=payload, headers=headers)
+    assert put_res.status_code == 200
+    data = put_res.json()
+
+    assert data["is_persisted"] is True
+    assert data["slug"] == "jane-developer"
+    assert data["is_public"] is True
+    assert data["headline"] == "Full-Stack Engineer & Systems Specialist"
+    assert len(data["projects"]) >= 1
+    assert data["projects"][0]["title"] == "Cloud File Storage"
+    assert data["visibility"]["about"] is True
+
+    # Check persistence in test storage
+    assert len(test_storage["user_portfolios"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_slug_rules_and_reserved_words(async_client: AsyncClient):
+    """Verify slug validation: regex, bounds, and reserved words list."""
+    token = await _signup_and_login(async_client, "slug_rules@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Too short (< 3 chars)
+    r_short = await async_client.put("/v1/portfolio", json={"slug": "ab"}, headers=headers)
+    assert r_short.status_code == 422
+
+    # Invalid characters / regex
+    r_invalid = await async_client.put("/v1/portfolio", json={"slug": "invalid_slug!"}, headers=headers)
+    assert r_invalid.status_code == 422
+
+    # Consecutive or leading hyphens
+    r_hyphen = await async_client.put("/v1/portfolio", json={"slug": "-bad-slug-"}, headers=headers)
+    assert r_hyphen.status_code == 422
+
+    # Reserved words
+    for reserved in ["admin", "api", "auth", "login", "settings", "root"]:
+        r_res = await async_client.put("/v1/portfolio", json={"slug": reserved}, headers=headers)
+        assert r_res.status_code == 422
+        assert "reserved system keyword" in r_res.text
+
+
+@pytest.mark.asyncio
+async def test_concurrent_slug_claim_conflict(async_client: AsyncClient):
+    """Claiming an existing slug returns 409 Conflict."""
+    token1 = await _signup_and_login(async_client, "user_one_slug@example.com")
+    token2 = await _signup_and_login(async_client, "user_two_slug@example.com")
+
+    # User 1 claims slug
+    r1 = await async_client.put("/v1/portfolio", json={"slug": "unique-portfolio"}, headers={"Authorization": f"Bearer {token1}"})
+    assert r1.status_code == 200
+
+    # User 2 attempts to claim same slug
+    r2 = await async_client.put("/v1/portfolio", json={"slug": "unique-portfolio"}, headers={"Authorization": f"Bearer {token2}"})
+    assert r2.status_code == 409
+    assert "already claimed" in r2.json()["error"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_extra_fields_and_bad_links_rejected(async_client: AsyncClient):
+    """extra='forbid' and link scheme validation."""
+    token = await _signup_and_login(async_client, "validation_user@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Extra field on root
+    r_extra = await async_client.put("/v1/portfolio", json={"hacked_field": True}, headers=headers)
+    assert r_extra.status_code == 422
+
+    # Bad link scheme (not http/https)
+    r_bad_link = await async_client.put(
+        "/v1/portfolio",
         json={
-            "name": "Jane Developer",
-            "budget_level": "medium",
-            "hours_available_per_week": 25,
-            "subjects_of_interest": ["Computer Science", "Algorithms"],
-            "skills": [{"name": "Python", "level": "intermediate"}],
+            "custom_projects": [
+                {
+                    "title": "Bad Link Project",
+                    "description": "Testing invalid links",
+                    "link": "javascript:alert(1)",
+                }
+            ]
         },
         headers=headers,
     )
-    assert prof_resp.status_code == 200
+    assert r_bad_link.status_code == 422
 
-    # 2. Add Tracked Skill with Evidence
-    sk_id = uuid4()
-    skill = Skill(
-        id=sk_id,
-        slug="python",
-        name="Python",
-        aliases=["python3"],
-        created_at=now,
-    )
-    test_storage["skills"][sk_id] = skill
 
-    us_id = uuid4()
-    us = UserSkill(
-        id=us_id,
-        user_id=user_id,
-        skill_id=sk_id,
-        current_level="intermediate",
-        confidence="high",
-        updated_at=now,
-    )
-    us.skill = skill
-    test_storage["user_skills"][us_id] = us
+@pytest.mark.asyncio
+async def test_provenance_labels_for_skills_and_roadmap_items(async_client: AsyncClient, test_storage):
+    """Verify provenance: test_assessed when test evidence exists; completed roadmap items labelled self_reported."""
+    token = await _signup_and_login(async_client, "provenance_user@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = next(u for u in test_storage["users"].values() if u.email == "provenance_user@example.com")
+    now = datetime.now(timezone.utc)
+
+    # 1. Add skill with test evidence
+    sk1_id = uuid4()
+    skill1 = Skill(id=sk1_id, slug="golang", name="Go", created_at=now)
+    test_storage["skills"][sk1_id] = skill1
+
+    us1_id = uuid4()
+    us1 = UserSkill(id=us1_id, user_id=user.id, skill_id=sk1_id, current_level="intermediate", confidence="high", updated_at=now)
+    us1.skill = skill1
+    test_storage["user_skills"][us1_id] = us1
 
     ev_id = uuid4()
-    ev = SkillEvidence(
-        id=ev_id,
-        user_id=user_id,
-        skill_id=sk_id,
-        source_type="project",
-        source_id=uuid4(),
-        score=85,
-        level_signal="intermediate",
-        summary="Built CLI data pipeline",
-        created_at=now,
-    )
+    ev = SkillEvidence(id=ev_id, user_id=user.id, skill_id=sk1_id, source_type="test", source_id=uuid4(), score=85, created_at=now)
     test_storage["skill_evidence"][ev_id] = ev
 
-    # 3. Complete a Recommendation Item via action endpoint
-    course_id = uuid4()
-    course = Course(
-        id=course_id,
-        code="CS_FULL_101",
-        title="Full Stack Software Engineering",
-        degree_level="bachelor",
-        duration="6 months",
-        cost_inr=20000,
-        mode="online",
-        source_url="https://example.com/full_cs",
-        status="verified",
-        last_verified_at=now,
-        created_at=now,
-    )
-    test_storage["courses"][course_id] = course
+    # 2. Add skill without test evidence (declared only)
+    sk2_id = uuid4()
+    skill2 = Skill(id=sk2_id, slug="rust", name="Rust", created_at=now)
+    test_storage["skills"][sk2_id] = skill2
 
-    action_resp = await async_client.post(
-        f"/v1/recommendations/course/{course_id}/action",
-        json={"state": "done"},
-        headers=headers,
-    )
-    assert action_resp.status_code == 200
+    us2_id = uuid4()
+    us2 = UserSkill(id=us2_id, user_id=user.id, skill_id=sk2_id, current_level="beginner", confidence="low", updated_at=now)
+    us2.skill = skill2
+    test_storage["user_skills"][us2_id] = us2
 
-    # 4. Add Completed Roadmap Milestone
-    career = next(iter(test_storage["careers"].values()))
-    rd_id = uuid4()
-    roadmap = Roadmap(
-        id=rd_id,
-        user_id=user_id,
-        career_id=career.id,
-        template_id=uuid4(),
-        template_version=1,
-        title="SDE Action Plan",
-        status="active",
-        created_at=now,
-        updated_at=now,
-    )
-    test_storage["roadmaps"][rd_id] = roadmap
-
-    r_item_id = uuid4()
-    r_item = RoadmapItem(
-        id=r_item_id,
-        roadmap_id=rd_id,
-        item_code="PROJ_BACKEND_API",
-        type="project",
-        title="RESTful Web API Project",
-        topic="Backend Systems",
-        difficulty=2,
-        estimated_minutes=300,
-        source_url="https://github.com/example/project",
-        status="done",
-        completed_at=now - timedelta(days=2),
-        created_at=now,
-        updated_at=now,
-    )
-    test_storage["roadmap_items"][r_item_id] = r_item
-
-    # 5. Add Completed Diagnostic Test
-    attempt_id = uuid4()
-    attempt = TestAttempt(
-        id=attempt_id,
-        user_id=user_id,
-        career_id=career.id,
-        type="skill",
-        topic="Data Structures & Algorithms",
-        status="finished",
-        current_difficulty=2,
-        demonstrated_level="intermediate",
-        confidence="high",
-        score_percentage=80,
-        total_correct=5,
-        total_answered=6,
-        started_at=now - timedelta(days=3),
-    )
-    test_storage["test_attempts"][attempt_id] = attempt
-
-    # 6. Fetch Portfolio
     resp = await async_client.get("/v1/portfolio", headers=headers)
     assert resp.status_code == 200
-    portfolio = resp.json()
+    skills_data = {s["slug"]: s for s in resp.json()["skills"]}
 
-    # Verify Profile
-    assert portfolio["profile"]["name"] == "Jane Developer"
-    assert portfolio["profile"]["subjects_of_interest"] == ["Computer Science", "Algorithms"]
-
-    # Verify Summary Counters
-    assert portfolio["summary"]["total_skills_tracked"] == 1
-    assert portfolio["summary"]["total_recommendations_completed"] == 1
-    assert portfolio["summary"]["total_milestones_completed"] == 1
-    assert portfolio["summary"]["total_tests_completed"] == 1
-
-    # Verify Tracked Skills & Evidence Count
-    sk_item = portfolio["skills"][0]
-    assert sk_item["name"] == "Python"
-    assert sk_item["current_level"] == "intermediate"
-    assert sk_item["confidence"] == "high"
-    # 2 evidence points: 1 manually created + 1 auto-created by marking course done if title/domain matched, or at least 1
-    assert sk_item["evidence_count"] >= 1
-
-    # Verify Completed Recommendation
-    rec_item = portfolio["completed_recommendations"][0]
-    assert rec_item["item_id"] == str(course_id)
-    assert rec_item["item_type"] == "course"
-    assert rec_item["title"] == "Full Stack Software Engineering"
-    assert rec_item["provider"] == "bachelor"
-    assert rec_item["source_url"] == "https://example.com/full_cs"
-
-    # Verify Completed Milestone
-    m_item = portfolio["completed_milestones"][0]
-    assert m_item["item_id"] == str(r_item_id)
-    assert m_item["roadmap_id"] == str(rd_id)
-    assert m_item["title"] == "RESTful Web API Project"
-    assert m_item["type"] == "project"
-    assert m_item["topic"] == "Backend Systems"
-    assert m_item["difficulty"] == 2
-
-    # Verify Diagnostic Test
-    test_item = portfolio["diagnostic_tests"][0]
-    assert test_item["attempt_id"] == str(attempt_id)
-    assert test_item["type"] == "skill"
-    assert test_item["topic"] == "Data Structures & Algorithms"
-    assert test_item["demonstrated_level"] == "intermediate"
-    assert test_item["confidence"] == "high"
-    assert test_item["score_percentage"] == 80
+    assert skills_data["golang"]["provenance"] == "test_assessed"
+    assert skills_data["rust"]["provenance"] == "self_reported"
 
 
 @pytest.mark.asyncio
-async def test_portfolio_strict_ownership_isolation(async_client: AsyncClient, test_storage):
-    # User A creates content
-    token_a = await _signup_and_login(async_client, "user_a@example.com")
-    headers_a = {"Authorization": f"Bearer {token_a}"}
-
-    now = datetime.now(timezone.utc)
-    course_id = uuid4()
-    course = Course(
-        id=course_id,
-        code="CS_USER_A",
-        title="User A Private Course",
-        degree_level="bachelor",
-        duration="2 months",
-        cost_inr=1000,
-        mode="online",
-        source_url="https://example.com/user_a",
-        status="verified",
-        last_verified_at=now,
-        created_at=now,
-    )
-    test_storage["courses"][course_id] = course
-
-    await async_client.post(
-        f"/v1/recommendations/course/{course_id}/action",
-        json={"state": "done"},
-        headers=headers_a,
-    )
-
-    # User B registers
-    token_b = await _signup_and_login(async_client, "user_b@example.com")
-    headers_b = {"Authorization": f"Bearer {token_b}"}
-
-    # User B queries their portfolio
-    resp_b = await async_client.get("/v1/portfolio", headers=headers_b)
-    assert resp_b.status_code == 200
-    data_b = resp_b.json()
-
-    # User B must not see User A's completed recommendations
-    assert data_b["summary"]["total_recommendations_completed"] == 0
-    assert len(data_b["completed_recommendations"]) == 0
-    rec_ids_b = [it["item_id"] for it in data_b["completed_recommendations"]]
-    assert str(course_id) not in rec_ids_b
-
-
-@pytest.mark.asyncio
-async def test_public_portfolio_and_summary_and_export(async_client: AsyncClient, test_storage):
-    """Verify public portfolio page, AI elevator pitch summary, and markdown resume export."""
-    email = "portfolio_extensions@example.com"
-    token = await _signup_and_login(async_client, email)
+async def test_public_portfolio_allowlist_headers_and_visibility(async_client: AsyncClient):
+    """Public page GET /v1/portfolio/p/{slug} allowlist, visibility toggles, and headers."""
+    token = await _signup_and_login(async_client, "public_portfolio_owner@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Retrieve current user id from /me
-    me_res = await async_client.get("/v1/auth/me", headers=headers)
-    assert me_res.status_code == 200
-    user_id = me_res.json()["id"]
-
-    # 1. Public portfolio endpoint (accessible unauthenticated)
-    pub_res = await async_client.get(f"/v1/portfolio/public/{user_id}")
-    assert pub_res.status_code == 200
-    pub_data = pub_res.json()
-    assert "profile" in pub_data
-    assert "email" not in pub_data["profile"]  # Email must not leak in public view
-    assert pub_data["profile"]["user_id"] == user_id
-    assert "summary" in pub_data
-
-    # Unexisting user returns 404
-    non_existent = str(uuid4())
-    pub_404 = await async_client.get(f"/v1/portfolio/public/{non_existent}")
-    assert pub_404.status_code == 404
-
-    # 2. AI Elevator Pitch Summary (Authenticated)
-    pitch_res = await async_client.post(
-        "/v1/portfolio/summary",
-        json={"headline": "Full-stack developer"},
+    # 1. Private by default -> returns 404
+    await async_client.put(
+        "/v1/portfolio",
+        json={
+            "slug": "public-dev-slug",
+            "is_public": False,
+            "headline": "Backend Engineer",
+            "about": "Secret private about text",
+            "visibility": {"about": True, "skills": True, "projects": True, "certificates": False, "competitions": False, "achievements": False},
+        },
         headers=headers,
     )
-    assert pitch_res.status_code == 200
-    pitch_data = pitch_res.json()
-    assert "elevator_pitch" in pitch_data
-    assert len(pitch_data["key_highlights"]) > 0
-    assert "suggested_tagline" in pitch_data
 
-    # Extra field forbidden on pitch
-    pitch_invalid = await async_client.post(
-        "/v1/portfolio/summary",
-        json={"headline": "Developer", "extra_bad": True},
+    r_private = await async_client.get("/v1/portfolio/p/public-dev-slug")
+    assert r_private.status_code == 404
+
+    # 2. Toggle is_public to True
+    await async_client.put(
+        "/v1/portfolio",
+        json={
+            "is_public": True,
+            "headline": "Backend Engineer",
+            "about": "Publicly visible about text",
+            "visibility": {"about": True, "skills": False, "projects": False, "certificates": False, "competitions": False, "achievements": False},
+        },
         headers=headers,
     )
-    assert pitch_invalid.status_code == 422
 
-    # 3. Resume Markdown Export (Authenticated)
-    resume_res = await async_client.get("/v1/portfolio/export/resume", headers=headers)
-    assert resume_res.status_code == 200
-    resume_data = resume_res.json()
-    assert "markdown_resume" in resume_data
-    assert "Resume: Candidate Portfolio" in resume_data["markdown_resume"]
-    assert resume_data["export_format"] == "markdown"
+    r_pub = await async_client.get("/v1/portfolio/p/public-dev-slug")
+    assert r_pub.status_code == 200
+    assert r_pub.headers["X-Robots-Tag"] == "noindex, nofollow"
+    assert "no-cache" in r_pub.headers["Cache-Control"]
 
+    pub_data = r_pub.json()
+    assert pub_data["slug"] == "public-dev-slug"
+    assert pub_data["about"] == "Publicly visible about text"
+
+    # Invariant: Forbidden keys are NEVER present in public view
+    forbidden_keys = ["email", "user_id", "hashed_password", "id", "user_portfolio_id"]
+    for key in forbidden_keys:
+        assert key not in pub_data
+
+    # Hidden sections whose visibility is False are absent/None
+    assert pub_data["skills"] is None
+    assert pub_data["projects"] is None
+    assert pub_data["certificates"] is None
+
+    # Unknown slug returns 404
+    r_unknown = await async_client.get("/v1/portfolio/p/nonexistent-random-slug-123")
+    assert r_unknown.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_ai_text_assistant_generate_text(async_client: AsyncClient):
+    """POST /v1/portfolio/generate-text strictly based on facts without hallucinating numbers."""
+    token = await _signup_and_login(async_client, "ai_assistant_user@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Valid request
+    res = await async_client.post(
+        "/v1/portfolio/generate-text",
+        json={
+            "section": "about",
+            "user_facts": [
+                "Built asynchronous REST APIs with FastAPI",
+                "Optimized database connection pools with SQLAlchemy",
+                "Reduced cache query latency using Redis",
+            ],
+            "target_career": "Backend Engineer",
+        },
+        headers=headers,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["section"] == "about"
+    assert data["is_suggestion"] is True
+    assert len(data["generated_text"]) > 10
+    assert data["word_count"] > 0
+
+    # 2. Empty facts rejected
+    res_empty = await async_client.post(
+        "/v1/portfolio/generate-text",
+        json={"section": "about", "user_facts": ["   "]},
+        headers=headers,
+    )
+    assert res_empty.status_code == 422
+
+    # 3. Fact longer than 200 chars rejected
+    res_long = await async_client.post(
+        "/v1/portfolio/generate-text",
+        json={"section": "about", "user_facts": ["a" * 205]},
+        headers=headers,
+    )
+    assert res_long.status_code == 422

@@ -46,6 +46,7 @@ from app.models.roadmap import (
     ReplanHistory,
 )
 from app.models.recommendation import RecommendationAction
+from app.models.portfolio import UserPortfolio
 
 __all__ = [
     "User",
@@ -87,4 +88,5 @@ __all__ = [
     "RoadmapItem",
     "ReplanHistory",
     "RecommendationAction",
+    "UserPortfolio",
 ]

@@ -393,6 +393,36 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - High-volume enterprise usage necessitates multi-region distributed worker clusters.
 
+---
+
+## ADR-019: Personalized Portfolio Architecture (Step 1a, 1b, Step 2) – Private-by-Default, Non-Writing GET Invariant, Allowlist Public Slug Projection, Grounded AI Suggestions, and Deferred PDF
+
+- **Options Considered**:
+  - Persisting a draft row into `user_portfolios` during initial `GET /v1/portfolio` vs Strictly non-writing GET returning in-memory suggestions with persistence deferred to explicit `PUT /v1/portfolio`.
+  - Exposing `StudentProfile` and database entity IDs in the public portfolio view vs Strict separate allowlist projection schema stripped of emails, user IDs, and unshared metadata.
+  - Hand-rolling a custom PDF generator or adding a third-party PDF compilation library vs Deferring PDF resume export until a clean frontend print stylesheet or maintained library is decided.
+  - Unconstrained LLM generation for portfolio text vs Anti-hallucination post-validator verifying all numbers, years, and percentages against user-provided facts.
+- **Choice**: **Non-Writing GET Invariant, Allowlist Public Slug View (`GET /v1/portfolio/p/{slug}`), Grounded Anti-Hallucination AI Suggestions (`POST /v1/portfolio/generate-text`), and Deferred PDF Export**
+- **Reason**:
+  - **Strict HTTP GET Idempotence and Non-Writing Safety**:
+    - Under HTTP specifications, GET requests must be safe and idempotent, producing zero database side-effects. Initial GET queries synthesize computed suggestions from verified skills and roadmap items in-memory (`is_persisted=False`), persisting rows only when the student explicitly submits a `PUT /v1/portfolio`.
+  - **Private-by-Default & Provenance Integrity**:
+    - All sections default to `visibility = false` and `is_public = false`. Nothing from `StudentProfile` or internal user models is exposed publicly without explicit opt-in.
+    - Skills are partitioned by provenance: labelled `test_assessed` only if verified assessment evidence exists; otherwise `self_reported`. Roadmap items of type project or certificate are labelled `self_reported` and never marked as verified without verification proof.
+  - **Public Page Security & Anti-Leakage**:
+    - `GET /v1/portfolio/p/{slug}` serves a dedicated allowlist schema (`PublicPortfolioViewResponse`). Missing, private (`is_public=False`), and non-existent portfolios return identical 404 responses to prevent slug enumeration.
+    - Public responses inject `X-Robots-Tag: noindex, nofollow` and `Cache-Control: no-cache, no-store, must-revalidate` alongside IP rate-limiting.
+  - **Anti-Hallucination AI Guardrails**:
+    - Generative text suggestions (`generate-text`) accept at most 10 facts (max 200 chars each) and execute through `LLMGateway` with prompt-injection defense.
+    - The output is verified by a strict regex post-validator: any metric, number, percentage, or year not present in the user-submitted facts is rejected, triggering a deterministic template fallback. AI suggestions are never auto-saved.
+  - **Zero Dependency PDF Policy**:
+    - PDF export is intentionally omitted from the backend to prevent brittle binary dependencies (e.g. wkhtmltopdf/weasyprint) and hand-rolled formatters, allowing the frontend to implement standard browser print stylesheets.
+- **Trade-off**:
+  - First-time users see `is_persisted=False` suggestions and must issue a PUT to establish their custom slug and persistence.
+- **Revisit if**:
+  - High-traffic public portfolios require edge CDN caching or static site generation (SSG) pipelines.
+
+
 
 
 
