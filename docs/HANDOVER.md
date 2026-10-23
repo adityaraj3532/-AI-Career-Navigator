@@ -4,35 +4,40 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
-## Session: 2026-10-23 (Gemini 3.8 Flash (Medium))
+## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – Phase 1 Foundation
 
 ### Done
-- Established foundational directory structure:
-  - `app/core/`, `app/models/`, `app/schemas/`, `app/repositories/`, `app/api/`, `app/services/`
-  - `app/llm/prompts/`, `app/workers/`, `app/data/seed/`
-  - `alembic/versions/`, `tests/`, `docs/`
-- Created security configuration `.gitignore` (ignoring `.env`, caches, virtual environments).
-- Created environment template `.env.example` with zero hardcoded secrets.
-- Created `docker-compose.yml` defining PostgreSQL 16 and Redis 7 healthchecked containers.
-- Created foundational engineering documentation under `docs/` (and root mirrors):
-  - `ARCHITECTURE.md`: Module boundaries, standard & AI request flows, 3 trust boundaries, complete 20-entity schema outline.
-  - `CONSTRAINTS.md`: Plain never/always/only rules (secrets, Pydantic validation, deterministic scoring, verified DB ID referencing, prompt sanitization, ownership checks).
-  - `DECISIONS.md`: Initial ADRs for FastAPI, PostgreSQL, ARQ vs Celery, Gemini internal gateway, deterministic code scoring.
-  - `DEPENDENCIES.md`: Pinned dependencies for Python 3.11+, FastAPI, SQLAlchemy, ARQ, google-genai, etc.
-- Initialized Git repository and recorded initial commit.
+- Rebased initial scaffolding onto `origin/main` (incorporating remote `README.md`) and switched to branch `backend`.
+- Configured project dependencies in `requirements.txt` with exact version pinning, logged in `docs/DEPENDENCIES.md`.
+- Implemented environment-driven configuration via `pydantic-settings` (`app/core/config.py`).
+- Implemented structured logging with request-ID tracking (`app/core/logging.py`, `app/core/middleware.py`).
+- Implemented global error handling with single standard JSON error envelope (`app/core/exceptions.py`).
+- Implemented async PostgreSQL engine and session factory using `asyncpg` exclusively (`app/core/database.py`).
+- Implemented async Redis connection pool and healthcheck (`app/core/redis.py`).
+- Implemented `/health` (liveness) and `/ready` (readiness checking PostgreSQL and Redis) under `/v1` router (`app/api/v1/health.py`, `app/main.py`).
+- Implemented ARQ background worker bootstrap with Redis settings and sample task (`app/workers/worker.py`).
+- Configured Alembic with native async runner (`run_async_migrations`) and `asyncpg` (`alembic.ini`, `alembic/env.py`).
+- Authored production `Dockerfile` and updated `docker-compose.yml` (Postgres, Redis, API, ARQ worker).
+- Added GitHub Actions workflow (`.github/workflows/ci.yml`) running Ruff linter and Pytest with real Postgres & Redis service containers.
+- Implemented automated tests for health, ready, and standard error handling (`tests/test_health.py`, `tests/test_errors.py`). Real pytest execution: 7 passed, 0 failures.
+- Documented single-driver decision in `docs/DECISIONS.md` (ADR-006).
 
 ### In progress
-- None (Foundation and scaffolding step complete).
+- Phase 1 completed. Waiting for user review before proceeding to Phase 2.
 
 ### Broken or risky
-- No application code written yet (as explicitly instructed for this step). Ensure virtual environment and dependencies are installed before running application code in subsequent steps.
+- Local Windows Docker daemon was not running during the session (client pipe `//./pipe/dockerDesktopLinuxEngine` inactive), preventing local `docker compose up` from starting containers locally. Local pytest and uvicorn runtime tests verified against local Python 3.12 environment. CI pipeline is configured with real Postgres and Redis service containers.
 
-### Next
-- Step 1: Initialize Python project dependencies (`requirements.txt` or `pyproject.toml`) matching `docs/DEPENDENCIES.md`.
-- Step 2: Implement `app/core/config.py` with `pydantic-settings` to load and validate all `.env` variables.
-- Step 3: Implement database engine, session factory (`app/core/database.py`), and Alembic configuration.
-- Write tests for settings loading and database connection.
+### Next (Phase 2 upon approval)
+- Implement `User` SQLAlchemy model with `role` (`student`/`admin`) and `education_level` (`class_11_12`/`college`).
+- Generate initial Alembic migration for `users` and refresh token store.
+- Implement `user_repository.py` and `auth_service.py` with:
+  - Refresh token rotation (storing hashed tokens, revoking on logout & password reset).
+  - Single-use 30-minute password reset tokens with timing-attack resistant uniform responses.
+  - Redis-based login rate limiting.
+  - Ownership guard (`get_current_user` dependency ensuring students only access their own records).
+- Add tests for signup, login, refresh rotation, rate limiting, and ownership protection.
 
 ### Do not touch
-- `docs/CONSTRAINTS.md`: Core rules are locked and require explicit approval to modify.
-- Architectural boundaries defined in `docs/DECISIONS.md`.
+- `docs/CONSTRAINTS.md`: Core product and security rules are locked.
+- Single standard error response envelope contract (`{"error": {"code": "...", "message": "...", "details": ..., "request_id": "..."}}`).

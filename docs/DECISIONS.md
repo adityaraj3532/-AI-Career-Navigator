@@ -89,3 +89,19 @@ This document tracks all foundational technology and architecture choices, evalu
   - Engineering team must explicitly model and code scoring rules and algorithms in Python services.
 - **Revisit if**:
   - Never. Scoring integrity and auditability are foundational non-negotiables for educational and career advisory products.
+
+---
+
+## ADR-006: Database Driver – Single Driver Architecture (`asyncpg` Only)
+
+- **Options Considered**:
+  - Dual drivers: `asyncpg` for FastAPI runtime + `psycopg2-binary` for Alembic migrations.
+  - Single driver: `asyncpg` exclusively for both runtime API and Alembic migrations via Alembic's async template.
+- **Choice**: **Single Driver (`asyncpg` Only)**
+- **Reason**:
+  - Alembic natively supports async runners (`run_async_migrations` using `async_engine_from_config` and `connection.run_sync()`), eliminating the need for a secondary synchronous driver.
+  - Eliminates extra build-time C-dependencies (`psycopg2-binary`) and prevents dual-driver connection string drift in configuration files.
+- **Trade-off**:
+  - Requires `alembic/env.py` to use `asyncio.run(run_async_migrations())` for online migrations.
+- **Revisit if**:
+  - Explicit Alembic plugins or offline schema generation tools require synchronous DBAPI connections that cannot execute within `run_sync`.
