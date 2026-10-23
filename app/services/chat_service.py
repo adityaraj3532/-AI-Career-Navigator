@@ -40,8 +40,9 @@ MAX_HISTORY_MESSAGES_FOR_PROMPT = 6
 
 
 class ChatService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, gateway: Optional[LLMGateway] = None):
         self.session = session
+        self.gateway = gateway
 
     async def send_message(self, user: User, req: ChatRequest) -> ChatMessageResponse:
         """Process user chat message with transaction isolation, safety pre-check, and context grounding."""
@@ -252,23 +253,30 @@ class ChatService:
             return NO_ROADMAP_ANSWER, [], "fallback"
 
         # 3. Call LLM Gateway
-        gateway = LLMGateway()
+        gateway = self.gateway or LLMGateway()
         inputs = {
             "context_json": json.dumps(context_dict, indent=2),
             "conversation_history": history_text or "No prior messages.",
             "user_query": clean_user_message,
         }
 
+        fallback_chat = AIChatOutput(
+            answer=FIXED_FALLBACK_ANSWER,
+            used_record_ids=[],
+            in_scope=False,
+        )
+
         try:
             gw_res = await gateway.generate(
-                prompt_name="ai_chat_v1",
+                prompt_name="ai_chat",
                 inputs=inputs,
                 output_schema=AIChatOutput,
-                temperature=0.2,
+                fallback=fallback_chat,
+                version=1,
             )
-            output = gw_res.structured_output
+            output = gw_res.data
 
-            if not output or not output.in_scope:
+            if gw_res.telemetry.fallback_used or not output or not output.in_scope:
                 return FIXED_FALLBACK_ANSWER, [], "fallback"
 
             # Post-validator: verify used_record_ids is a strict subset of registry

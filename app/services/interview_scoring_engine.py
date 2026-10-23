@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 from app.schemas.interview import DimensionScores, ScoringResult
 
 
@@ -136,6 +136,52 @@ def detect_keyword_stuffing(
     return False
 
 
+def compute_depth_signal(answer_text: str, is_stuffed: bool = False, max_cap: Optional[int] = None) -> int:
+    """Pure deterministic calculation of depth/elaboration from answer text."""
+    text_lower = answer_text.lower()
+    tokens = re.findall(r"\b[\w'-]+\b", text_lower)
+    word_count = len(tokens)
+    reasoning_terms = {
+        "because", "therefore", "however", "tradeoff", "trade-off", "example",
+        "complexity", "approach", "handling", "mitigate", "advantage", "disadvantage",
+        "difference", "alternative", "situation", "action", "result", "impact",
+    }
+    has_reasoning = any(term in text_lower for term in reasoning_terms)
+
+    if is_stuffed:
+        signal = 15
+    elif word_count < 20:
+        signal = 25
+    elif word_count < 50:
+        signal = 50 + (10 if has_reasoning else 0)
+    elif word_count < 120:
+        signal = 65 + (15 if has_reasoning else 0)
+    else:
+        signal = 80 + (10 if has_reasoning else 5)
+
+    if max_cap is not None:
+        signal = min(max_cap, signal)
+    return min(100, max(0, signal))
+
+
+def compute_structure_signal(answer_text: str, is_stuffed: bool = False, max_cap: Optional[int] = None) -> int:
+    """Pure deterministic calculation of structure/organization from answer text."""
+    text_lower = answer_text.lower()
+    signal = 10
+    if "\n\n" in answer_text or "\n" in answer_text:
+        signal += 25
+    if re.search(r"(?:^|\n)\s*[-*•\d+.]\s+", answer_text):
+        signal += 25
+    if any(transition in text_lower for transition in ["first", "second", "third", "finally", "in summary", "to begin", "in conclusion"]):
+        signal += 20
+    if re.search(r"[.?!;]", answer_text):
+        signal += 10
+
+    if max_cap is not None:
+        signal = min(max_cap, signal)
+    return min(100, max(10, signal))
+
+
 def fallback_score_answer(
     key_points: List[Dict[str, Any]],
     answer_text: str,
@@ -200,38 +246,10 @@ def fallback_score_answer(
     is_stuffed = detect_keyword_stuffing(tokens, matched_kw_list, config)
 
     # 3. Depth signal (evaluated purely on elaboration & reasoning, never on grammar/spelling)
-    reasoning_terms = {
-        "because", "therefore", "however", "tradeoff", "trade-off", "example",
-        "complexity", "approach", "handling", "mitigate", "advantage", "disadvantage",
-        "difference", "alternative", "situation", "action", "result", "impact",
-    }
-    has_reasoning = any(term in text_lower for term in reasoning_terms)
-
-    if is_stuffed:
-        depth_signal = 15
-    elif word_count < 20:
-        depth_signal = 25
-    elif word_count < 50:
-        depth_signal = 50 + (10 if has_reasoning else 0)
-    elif word_count < 120:
-        depth_signal = 65 + (15 if has_reasoning else 0)
-    else:
-        depth_signal = 80 + (5 if has_reasoning else 0)
-
-    # Depth in fallback is capped at 85
-    depth_signal = min(85, depth_signal)
+    depth_signal = compute_depth_signal(answer_text, is_stuffed=is_stuffed, max_cap=85)
 
     # 4. Structure signal (formatting cues: paragraphs, bullet points, numbered lists, transitions)
-    structure_signal = 10
-    if "\n\n" in answer_text or "\n" in answer_text:
-        structure_signal += 25
-    if re.search(r"(?:^|\n)\s*[-*•\d+.]\s+", answer_text):
-        structure_signal += 25
-    if any(transition in text_lower for transition in ["first", "second", "third", "finally", "in summary", "to begin", "in conclusion"]):
-        structure_signal += 20
-    if re.search(r"[.?!;]", answer_text):
-        structure_signal += 10
-    structure_signal = min(85, max(10, structure_signal))
+    structure_signal = compute_structure_signal(answer_text, is_stuffed=is_stuffed, max_cap=85)
 
     # 5. Compute dimension scores from coverage booleans
     base_scores = compute_scores_from_coverage(

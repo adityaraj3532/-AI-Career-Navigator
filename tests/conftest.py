@@ -7,7 +7,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.core.database import get_db
-from app.llm.gateway import LLMGateway
+from app.llm.gateway import LLMGateway, get_llm_gateway, set_llm_gateway, reset_llm_gateway
 from app.llm.provider import MockLLMProvider
 from app.main import app
 from app.models.assessment import (
@@ -1913,6 +1913,9 @@ async def test_storage():
 @pytest_asyncio.fixture
 async def async_client(test_storage, monkeypatch):
     mock_session = MockSession(test_storage)
+    mock_llm_provider = MockLLMProvider()
+    mock_llm_gateway = LLMGateway(provider=mock_llm_provider)
+    set_llm_gateway(mock_llm_gateway)
 
     from app.services.auth_service import AuthService
     from app.services.assessment_service import AssessmentService
@@ -1965,10 +1968,11 @@ async def async_client(test_storage, monkeypatch):
 
     monkeypatch.setattr(CompatibilityService, "__init__", mock_compatibility_service_init)
 
-    def mock_adaptive_test_service_init(self, session):
+    def mock_adaptive_test_service_init(self, session, gateway=None):
         self.session = mock_session
         self.repo = mock_session.adaptive_test_repo
         self.career_repo = mock_session.career_repo
+        self.gateway = gateway or mock_llm_gateway
 
     monkeypatch.setattr(AdaptiveTestService, "__init__", mock_adaptive_test_service_init)
 
@@ -1987,9 +1991,10 @@ async def async_client(test_storage, monkeypatch):
 
     monkeypatch.setattr(RecommendationService, "__init__", mock_recommendation_service_init)
 
-    def mock_portfolio_service_init(self, session):
+    def mock_portfolio_service_init(self, session, gateway=None):
         self.session = mock_session
         self.repo = mock_session.portfolio_repo
+        self.gateway = gateway or mock_llm_gateway
 
     monkeypatch.setattr(PortfolioService, "__init__", mock_portfolio_service_init)
 
@@ -2017,6 +2022,7 @@ async def async_client(test_storage, monkeypatch):
         yield mock_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_llm_gateway] = lambda: mock_llm_gateway
 
     async def mock_get_by_id(self, user_id):
         return await mock_session.user_repo.get_by_id(user_id)
@@ -2028,3 +2034,4 @@ async def async_client(test_storage, monkeypatch):
         yield client
 
     app.dependency_overrides.clear()
+    reset_llm_gateway()

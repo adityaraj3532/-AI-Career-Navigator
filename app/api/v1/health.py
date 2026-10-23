@@ -4,6 +4,7 @@ from fastapi import APIRouter, Response, status
 from app.core.config import get_settings
 from app.core.database import check_db_health
 from app.core.redis import check_redis_health
+from app.llm.gateway import is_gateway_configured
 from app.schemas.health import HealthResponse, ReadinessResponse
 
 logger = logging.getLogger("app.api.health")
@@ -31,13 +32,15 @@ async def health_check() -> HealthResponse:
 async def readiness_check(response: Response) -> ReadinessResponse:
     db_healthy = await check_db_health()
     redis_healthy = await check_redis_health()
+    gw_healthy = is_gateway_configured()
 
     dependencies = {
         "database": "ok" if db_healthy else "unhealthy",
         "redis": "ok" if redis_healthy else "unhealthy",
+        "llm_gateway": "ok" if gw_healthy else "unhealthy",
     }
 
-    is_ready = db_healthy and redis_healthy
+    is_ready = db_healthy and redis_healthy and gw_healthy
     if not is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 

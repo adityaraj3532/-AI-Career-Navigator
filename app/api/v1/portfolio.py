@@ -1,10 +1,10 @@
-from uuid import UUID
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.rate_limit import check_rate_limit
+from app.llm.gateway import LLMGateway, get_llm_gateway
 from app.models.user import User
 from app.schemas.portfolio import (
     GeneratePortfolioTextRequest,
@@ -13,7 +13,6 @@ from app.schemas.portfolio import (
     PortfolioResponse,
     PortfolioSummaryRequest,
     PortfolioSummaryResponse,
-    PublicPortfolioResponse,
     PublicPortfolioViewResponse,
     ResumeExportResponse,
     UpdatePortfolioRequest,
@@ -21,6 +20,13 @@ from app.schemas.portfolio import (
 from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+
+
+def get_portfolio_service(
+    db: AsyncSession = Depends(get_db),
+    gateway: LLMGateway = Depends(get_llm_gateway),
+) -> PortfolioService:
+    return PortfolioService(db, gateway=gateway)
 
 
 @router.get(
@@ -32,9 +38,8 @@ router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 )
 async def get_owner_portfolio(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    service: PortfolioService = Depends(get_portfolio_service),
 ) -> OwnerPortfolioResponse:
-    service = PortfolioService(db)
     return await service.get_owner_portfolio(current_user)
 
 
@@ -48,9 +53,8 @@ async def get_owner_portfolio(
 async def update_owner_portfolio(
     req: UpdatePortfolioRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    service: PortfolioService = Depends(get_portfolio_service),
 ) -> OwnerPortfolioResponse:
-    service = PortfolioService(db)
     return await service.update_owner_portfolio(current_user, req)
 
 
@@ -64,9 +68,8 @@ async def update_owner_portfolio(
 async def generate_portfolio_text(
     req: GeneratePortfolioTextRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    service: PortfolioService = Depends(get_portfolio_service),
 ) -> GeneratePortfolioTextResponse:
-    service = PortfolioService(db)
     return await service.generate_portfolio_text(current_user, req)
 
 
@@ -81,7 +84,7 @@ async def get_public_portfolio_by_slug(
     slug: str,
     request: Request,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    service: PortfolioService = Depends(get_portfolio_service),
 ) -> PublicPortfolioViewResponse:
     client_ip = request.client.host if request.client else "unknown"
     await check_rate_limit(f"pub_slug:{client_ip}", max_requests=60, window_seconds=60)
@@ -90,7 +93,6 @@ async def get_public_portfolio_by_slug(
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
 
-    service = PortfolioService(db)
     return await service.get_public_portfolio_by_slug(slug)
 
 
@@ -104,9 +106,8 @@ async def get_public_portfolio_by_slug(
 )
 async def get_raw_aggregated_portfolio(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    service: PortfolioService = Depends(get_portfolio_service),
 ) -> PortfolioResponse:
-    service = PortfolioService(db)
     return await service.get_portfolio_for_user(current_user)
 
 
@@ -120,9 +121,8 @@ async def get_raw_aggregated_portfolio(
 async def generate_portfolio_summary(
     req: PortfolioSummaryRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    service: PortfolioService = Depends(get_portfolio_service),
 ) -> PortfolioSummaryResponse:
-    service = PortfolioService(db)
     return await service.generate_portfolio_pitch(current_user, req)
 
 
@@ -135,22 +135,7 @@ async def generate_portfolio_summary(
 )
 async def export_resume(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    service: PortfolioService = Depends(get_portfolio_service),
 ) -> ResumeExportResponse:
-    service = PortfolioService(db)
     return await service.export_resume_markdown(current_user)
 
-
-@router.get(
-    "/public/{user_id}",
-    response_model=PublicPortfolioResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Public portfolio by user ID",
-    description="Read-only view of a student's verified portfolio by UUID.",
-)
-async def get_public_portfolio(
-    user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-) -> PublicPortfolioResponse:
-    service = PortfolioService(db)
-    return await service.get_public_portfolio(user_id)

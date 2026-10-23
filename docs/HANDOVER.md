@@ -4,6 +4,47 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 1: Access Control Audit & Fix 2: LLMGateway DI Wiring & Code Scoring)
+
+### Done
+- **Fix 1: Access Control Audit & IDOR Elimination**:
+  - Permanently deleted `GET /v1/portfolio/public/{user_id}` and `get_public_portfolio` in `app/api/v1/portfolio.py` and `app/services/portfolio_service.py`. Removed unused `PublicPortfolioResponse` and `PublicPortfolioProfile` from `app/schemas/portfolio.py`. Confirmed zero external references remain across codebase. Public portfolio access is strictly routed through `/v1/portfolio/p/{slug}`.
+  - Added automated security audit test `test_all_endpoints_require_auth_or_are_explicitly_allowlisted` in `tests/test_access_control_audit.py` that programmatically traverses `app.routes` and fails if any route neither requires `get_current_user` nor is on `EXPLICIT_UNAUTHENTICATED_ALLOWLIST`.
+  - Added OpenAPI snapshot test `test_openapi_snapshot_match` referencing `tests/snapshots/openapi_snapshot.json` to surface any future endpoint changes or schema regressions as an explicit git diff.
+  - Added `test_public_slug_response_contains_no_forbidden_keys` asserting sensitive keys (`user_id`, `email`, internal IDs, test results, profile fields) never leak on the public slug endpoint.
+  - Added `test_deleted_public_user_id_portfolio_returns_404_or_405`.
+- **Fix 2: Gateway Wiring & Pure Code-Derived Scoring**:
+  - Centralized gateway factory `get_llm_gateway()`, `set_llm_gateway()`, `reset_llm_gateway()`, and `is_gateway_configured()` in `app/llm/gateway.py`.
+  - Injected `get_llm_gateway` via FastAPI dependency injection into `InterviewService`, `AdaptiveTestService`, `PortfolioService`, `AssessmentService`, and `ChatService`.
+  - Enforced standardized `LLMGateway.generate(prompt_name, inputs, output_schema, fallback, version=1, post_validator=None)` signature across all AI feature services.
+  - Wired `/v1/ready` readiness probe in `app/api/v1/health.py` to check `is_gateway_configured()`, returning HTTP 503 if gateway credentials are missing in non-test environments (`ENVIRONMENT != "test"`).
+  - Authored AST test `test_no_module_outside_app_llm_imports_provider_sdk_or_calls_model` asserting zero imports of Google/OpenAI/Anthropic provider SDKs outside `app/llm`.
+  - Added per-feature fallback counter in `telemetry.py` (`_fallback_counter`, `get_fallback_counts()`, `get_telemetry_summary()`) exposed in structured telemetry logs.
+  - Enforced rule that interview evaluation returns booleans per key point only (`covered_points: Dict[str, bool]`); pure Python functions `compute_depth_signal` and `compute_structure_signal` compute all numbers deterministically in code.
+  - Added comprehensive integration tests in `tests/test_gateway_wiring.py` asserting AI-scored / AI-generated output (not fallback) using `MockLLMProvider` through the real FastAPI dependency overrides.
+- **Testing & Verification**:
+  - `tests/test_access_control_audit.py`: 4 passed.
+  - `tests/test_gateway_wiring.py`: 7 passed.
+  - Full test suite: **241 passed, 1 skipped**, 0 failures in 159s.
+  - Code hygiene: `ruff check` on `app` and `tests` passed with 0 errors.
+
+### Active Invariants
+- Public portfolio access is allowed ONLY through `/v1/portfolio/p/{slug}`; `GET /v1/portfolio/public/{user_id}` is permanently removed.
+- Every endpoint in the application strictly requires `get_current_user` unless explicitly registered in `EXPLICIT_UNAUTHENTICATED_ALLOWLIST`.
+- No module outside `app/llm` may import a provider SDK or call a model directly.
+- The LLM returns boolean key-point detections only for interview evaluations; code computes every numerical score.
+- Telemetry tracks fallback counts per prompt feature name.
+
+### Pending / Next Items
+- **Security Audit Fix 3 (Prompt Injection Defense in Gateway)**: Gateway accepts untrusted inputs separately, sanitizes them, and strips delimiter tags.
+- **Security Audit Fix 4 (Timeouts & Fallbacks Review)**: Review timeouts, retry limits, and deterministic fallbacks across all features.
+- **Security Audit Fix 5 (Demo Account Seeding Script)**: Seed a realistic demo account with completed profile, assessment, shortlist, roadmap, progress, and portfolio.
+- **Security Audit Fix 6 (Security Architecture Documentation)**: Draft `DEFENSE.md`, `DECISIONS.md`, `ALTERNATIVES.md`, `THREAT.md`, `FAILURE.md`, and `DATA.md` from actual code.
+- **Chat Step 1b**: Suggested actions chosen from a candidate list.
+- **Planner Step 1b**: Build `GET /v1/planner?date=`, `POST /v1/planner/tasks`, `PATCH /v1/planner/tasks/{id}`, and shared `complete_roadmap_item`.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Contextual AI Chat (Step 1a: Context Modes, Safety Pre-Check, Non-Streaming Chat, Message Ledger & History)
 
 ### Done

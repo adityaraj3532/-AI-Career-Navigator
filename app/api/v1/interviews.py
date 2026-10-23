@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.llm.gateway import LLMGateway, get_llm_gateway
 from app.models.user import User
 from app.repositories.interview_repository import InterviewRepository
 from app.repositories.skill_repository import SkillRepository
@@ -22,10 +23,13 @@ from app.services.interview_service import InterviewService
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
 
-def get_interview_service(session: AsyncSession = Depends(get_db)) -> InterviewService:
+def get_interview_service(
+    session: AsyncSession = Depends(get_db),
+    gateway: LLMGateway = Depends(get_llm_gateway),
+) -> InterviewService:
     repo = InterviewRepository(session)
     skill_repo = SkillRepository(session)
-    return InterviewService(repo=repo, skill_repo=skill_repo)
+    return InterviewService(repo=repo, skill_repo=skill_repo, gateway=gateway)
 
 
 @router.post(

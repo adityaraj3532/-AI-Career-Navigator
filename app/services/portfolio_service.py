@@ -1,10 +1,9 @@
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limit import check_rate_limit
@@ -26,8 +25,6 @@ from app.schemas.portfolio import (
     PortfolioSummaryResponse,
     PortfolioVisibility,
     ProjectItem,
-    PublicPortfolioProfile,
-    PublicPortfolioResponse,
     PublicPortfolioViewResponse,
     PublicSkillItem,
     ResumeExportResponse,
@@ -38,8 +35,9 @@ logger = logging.getLogger("app.services.portfolio")
 
 
 class PortfolioService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, gateway: Optional[Any] = None) -> None:
         self.session = session
+        self.gateway = gateway
         if hasattr(session, "portfolio_repo"):
             self.repo = getattr(session, "portfolio_repo")
         else:
@@ -293,7 +291,7 @@ class PortfolioService:
         result_text = baseline_text
 
         try:
-            gateway = LLMGateway()
+            gateway = self.gateway or LLMGateway()
             gw_res = await gateway.generate(
                 prompt_name="portfolio_text_v1",
                 inputs={
@@ -358,48 +356,6 @@ class PortfolioService:
             diagnostic_tests=diagnostic_tests,
         )
 
-    async def get_public_portfolio(self, user_id: UUID) -> PublicPortfolioResponse:
-        """Read-only public portfolio view omitting sensitive email/credentials."""
-        profile: Optional[StudentProfile] = await self.repo.get_user_profile(user_id)
-        skills = await self.repo.get_user_skills(user_id)
-        completed_recs = await self.repo.get_completed_recommendations(user_id)
-        completed_milestones = await self.repo.get_completed_roadmap_milestones(user_id)
-        diagnostic_tests = await self.repo.get_completed_diagnostic_tests(user_id)
-
-        if not profile and not skills and not completed_milestones and not diagnostic_tests:
-            # Check if user exists at all
-            if hasattr(self.session, "user_repo"):
-                user = await self.session.user_repo.get_by_id(user_id)
-            else:
-                stmt = select(User).where(User.id == user_id)
-                res = await self.session.execute(stmt)
-                user = res.scalar_one_or_none()
-            if not user:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found")
-
-        public_profile = PublicPortfolioProfile(
-            user_id=user_id,
-            education_level=profile.education_level if profile and hasattr(profile, "education_level") else None,
-            target_career=profile.target_career if profile and hasattr(profile, "target_career") else None,
-            subjects_of_interest=profile.subjects_of_interest if profile else [],
-        )
-
-        summary = PortfolioSummary(
-            total_skills_tracked=len(skills),
-            total_recommendations_completed=len(completed_recs),
-            total_milestones_completed=len(completed_milestones),
-            total_tests_completed=len(diagnostic_tests),
-        )
-
-        return PublicPortfolioResponse(
-            profile=public_profile,
-            summary=summary,
-            skills=skills,
-            completed_recommendations=completed_recs,
-            completed_milestones=completed_milestones,
-            diagnostic_tests=diagnostic_tests,
-        )
-
     async def generate_portfolio_pitch(
         self,
         user: User,
@@ -428,7 +384,7 @@ class PortfolioService:
         )
 
         try:
-            gateway = LLMGateway()
+            gateway = self.gateway or LLMGateway()
             gw_res = await gateway.generate(
                 prompt_name="portfolio_pitch_v1",
                 inputs={

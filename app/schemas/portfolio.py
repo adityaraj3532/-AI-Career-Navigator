@@ -294,26 +294,6 @@ class GeneratePortfolioTextResponse(BaseModel):
 
 
 # Legacy / Profile public schemas
-class PublicPortfolioProfile(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    user_id: UUID
-    education_level: Optional[str] = None
-    target_career: Optional[str] = None
-    subjects_of_interest: List[str] = Field(default_factory=list)
-
-
-class PublicPortfolioResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    profile: PublicPortfolioProfile
-    summary: PortfolioSummary
-    skills: List[PortfolioSkillItem]
-    completed_recommendations: List[PortfolioCompletedRecommendation]
-    completed_milestones: List[PortfolioCompletedMilestone]
-    diagnostic_tests: List[PortfolioDiagnosticTest]
-
-
 class PortfolioSummaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

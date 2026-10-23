@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.exceptions import AppException
+from app.llm.gateway import LLMGateway, get_llm_gateway
 from app.models.user import User
 from app.schemas.assessment import (
     AssessmentQARequest,
@@ -23,6 +24,13 @@ from app.services.assessment_service import AssessmentService
 router = APIRouter(prefix="/assessment", tags=["Career Assessment"])
 
 
+def get_assessment_service(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+) -> AssessmentService:
+    return AssessmentService(session, gateway=gateway)
+
+
 @router.get(
     "/questions",
     response_model=QuestionsListResponse,
@@ -30,9 +38,8 @@ router = APIRouter(prefix="/assessment", tags=["Career Assessment"])
 )
 async def get_questions(
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> QuestionsListResponse:
-    service = AssessmentService(session)
     return await service.get_active_questions()
 
 
@@ -43,9 +50,8 @@ async def get_questions(
 )
 async def get_current_attempt(
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> AttemptResponse:
-    service = AssessmentService(session)
     return await service.get_or_create_draft_attempt(current_user.id)
 
 
@@ -57,9 +63,8 @@ async def get_current_attempt(
 async def save_answers_post(
     req: SaveAnswersRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> AttemptResponse:
-    service = AssessmentService(session)
     return await service.save_answers(current_user.id, req)
 
 
@@ -71,9 +76,8 @@ async def save_answers_post(
 async def save_answers_put(
     req: SaveAnswersRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> AttemptResponse:
-    service = AssessmentService(session)
     return await service.save_answers(current_user.id, req)
 
 
@@ -85,9 +89,8 @@ async def save_answers_put(
 async def get_attempt_by_id(
     attempt_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> AttemptResponse:
-    service = AssessmentService(session)
     attempt = await service.repo.get_attempt_by_id(attempt_id, current_user.id)
     if not attempt:
         raise AppException(
@@ -105,10 +108,9 @@ async def get_attempt_by_id(
 )
 async def submit_assessment(
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
     req: Optional[SubmitAssessmentRequest] = None,
 ) -> AssessmentResultResponse:
-    service = AssessmentService(session)
     attempt_id = req.attempt_id if req else None
     return await service.submit_assessment(user=current_user, attempt_id=attempt_id)
 
@@ -120,9 +122,8 @@ async def submit_assessment(
 )
 async def get_latest_result(
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> AssessmentResultResponse:
-    service = AssessmentService(session)
     return await service.get_latest_result(current_user.id)
 
 
@@ -133,9 +134,8 @@ async def get_latest_result(
 )
 async def get_all_results(
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> List[AssessmentResultResponse]:
-    service = AssessmentService(session)
     return await service.get_all_results(current_user.id)
 
 
@@ -147,9 +147,8 @@ async def get_all_results(
 async def get_result_by_id(
     result_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> AssessmentResultResponse:
-    service = AssessmentService(session)
     return await service.get_result_by_id(result_id, current_user.id)
 
 
@@ -163,9 +162,8 @@ async def ask_assessment_question(
     result_id: UUID,
     req: AssessmentQARequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> AssessmentQAResponse:
-    service = AssessmentService(session)
     return await service.ask_question(current_user, result_id, req)
 
 
@@ -179,7 +177,6 @@ async def choose_career_from_result(
     result_id: UUID,
     req: ChooseCareerRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AssessmentService, Depends(get_assessment_service)],
 ) -> ChooseCareerResponse:
-    service = AssessmentService(session)
     return await service.choose_career(current_user, result_id, req)

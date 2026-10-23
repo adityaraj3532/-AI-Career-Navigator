@@ -217,6 +217,10 @@ class LLMGateway:
         )
 
     def _record_telemetry_metrics(self, in_tokens: int, out_tokens: int) -> None:
+        import os
+        settings = get_settings()
+        if "PYTEST_CURRENT_TEST" in os.environ or settings.ENVIRONMENT.lower() in ("test", "testing"):
+            return
         try:
             from app.core.redis import get_redis_client
             redis = get_redis_client()
@@ -232,3 +236,37 @@ class LLMGateway:
                 task.add_done_callback(lambda _: None)
         except Exception:
             pass
+
+
+_shared_gateway: Optional[LLMGateway] = None
+
+
+def get_llm_gateway() -> LLMGateway:
+    """Dependency injection factory for LLMGateway singleton."""
+    global _shared_gateway
+    if _shared_gateway is None:
+        _shared_gateway = LLMGateway()
+    return _shared_gateway
+
+
+def set_llm_gateway(gw: Optional[LLMGateway]) -> None:
+    """Overrides the shared LLMGateway instance (e.g. for testing with MockLLMProvider)."""
+    global _shared_gateway
+    _shared_gateway = gw
+
+
+def reset_llm_gateway() -> None:
+    """Resets the shared gateway instance."""
+    global _shared_gateway
+    _shared_gateway = None
+
+
+def is_gateway_configured() -> bool:
+    """Validates that the LLM gateway is configured for the active environment.
+    Fails in non-test environments if API key is missing.
+    """
+    settings = get_settings()
+    env = settings.ENVIRONMENT.lower()
+    if env in ("test", "testing"):
+        return True
+    return bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip())

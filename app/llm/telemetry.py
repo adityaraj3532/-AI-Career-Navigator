@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("app.llm.telemetry")
@@ -24,10 +24,43 @@ class TelemetryEvent(BaseModel):
     estimated_cost_usd: float = Field(default=0.0, description="Estimated API invocation cost in USD")
 
 
+_fallback_counter: dict[str, int] = {}
+_success_counter: dict[str, int] = {}
+
+
+def record_telemetry_event(event: TelemetryEvent) -> None:
+    """Records event in in-memory counters per prompt/feature."""
+    feature = event.prompt_name
+    if event.fallback_used or event.status == "fallback":
+        _fallback_counter[feature] = _fallback_counter.get(feature, 0) + 1
+    else:
+        _success_counter[feature] = _success_counter.get(feature, 0) + 1
+
+
+def get_fallback_counts() -> dict[str, int]:
+    """Returns a snapshot of fallback activations keyed by prompt/feature."""
+    return dict(_fallback_counter)
+
+
+def get_telemetry_summary() -> dict[str, Any]:
+    """Returns a summary of successes and fallbacks across features."""
+    return {
+        "fallbacks": dict(_fallback_counter),
+        "successes": dict(_success_counter),
+    }
+
+
+def reset_telemetry_counters() -> None:
+    """Resets counters (useful for isolated tests)."""
+    _fallback_counter.clear()
+    _success_counter.clear()
+
+
 def log_telemetry(event: TelemetryEvent) -> None:
     """Emits structured audit log for LLM invocations without PII or prompt text."""
+    record_telemetry_event(event)
     logger.info(
-        "AI_TELEMETRY prompt=%s_v%d model=%s status=%s fallback=%s latency_ms=%.2f attempts=%d in_tok=%d out_tok=%d cost=$%.6f error=%s",
+        "AI_TELEMETRY prompt=%s_v%d model=%s status=%s fallback=%s latency_ms=%.2f attempts=%d in_tok=%d out_tok=%d cost=$%.6f error=%s fallbacks_for_feature=%d",
         event.prompt_name,
         event.prompt_version,
         event.model_name,
@@ -39,5 +72,6 @@ def log_telemetry(event: TelemetryEvent) -> None:
         event.output_tokens,
         event.estimated_cost_usd,
         event.error_type or "none",
-        extra={"ai_telemetry": event.model_dump()},
+        _fallback_counter.get(event.prompt_name, 0),
+        extra={"ai_telemetry": event.model_dump(), "telemetry_summary": get_telemetry_summary()},
     )

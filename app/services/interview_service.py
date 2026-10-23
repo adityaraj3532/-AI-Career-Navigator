@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 from fastapi import HTTPException, status
 
+from pydantic import BaseModel, Field
+
 from app.core.config import Settings
 from app.llm.gateway import LLMGateway
 from app.models.skill import SkillEvidence
@@ -32,7 +34,9 @@ from app.schemas.interview import (
 )
 from app.services.interview_scoring_engine import (
     DEFAULT_RUBRIC_VERSION,
+    compute_depth_signal,
     compute_scores_from_coverage,
+    compute_structure_signal,
     fallback_score_answer,
 )
 
@@ -43,6 +47,16 @@ PII_REQUEST_PATTERN = re.compile(
     r"\b(phone number|mobile number|email address|password|social security|aadhaar|pan card|credit card|home address|personal identity)\b",
     re.IGNORECASE,
 )
+
+
+class InterviewEvaluationAIOutput(BaseModel):
+    covered_points: Dict[str, bool] = Field(default_factory=dict)
+    strengths: List[str] = Field(default_factory=list)
+    improvements: List[str] = Field(default_factory=list)
+
+
+class InterviewFollowUpAIOutput(BaseModel):
+    follow_up_question: str = Field(default="")
 
 PRACTICE_GUIDANCE_NOTE = "Feedback is practice guidance to support interview preparation."
 
@@ -150,62 +164,63 @@ class InterviewService:
         key_points: List[Dict[str, Any]],
         answer_text: str,
     ) -> Optional[Dict[str, Any]]:
-        """Invokes LLMGateway to judge key point coverage booleans and signals.
+        """Invokes LLMGateway to judge key point coverage booleans only.
 
-        Accepts English, Hindi, and Hinglish. Never computes score numbers directly.
+        Code computes every number (depth, structure, overall composite).
+        Never penalises grammar, spelling, or language choice.
         """
-        if not self.gateway or not getattr(self.gateway, "provider", None):
-            return None
-
-        prompt_tpl = self._get_prompt_template("interview_evaluation_v1.txt")
-        if not prompt_tpl:
+        if not self.gateway:
             return None
 
         kp_summary = [
             {"id": kp["id"], "text": kp["text"]} for kp in key_points
         ]
-        prompt = (
-            prompt_tpl.replace("{question_text}", question_text)
-            .replace("{key_points_json}", json.dumps(kp_summary, indent=2))
-            .replace("{candidate_answer}", answer_text)
+        valid_ids = {kp["id"] for kp in key_points}
+
+        fallback_obj = InterviewEvaluationAIOutput(
+            covered_points={kp["id"]: False for kp in key_points},
+            strengths=[],
+            improvements=[],
         )
 
         try:
-            raw = await self.gateway.generate(prompt=prompt)
-            raw = (raw or "").strip()
-            # Clean markdown codeblocks
-            raw = re.sub(r"^```(?:json)?\s*", "", raw)
-            raw = re.sub(r"\s*```$", "", raw)
-            data = json.loads(raw)
+            gw_res = await self.gateway.generate(
+                prompt_name="interview_evaluation",
+                inputs={
+                    "question_text": question_text,
+                    "key_points_json": json.dumps(kp_summary, indent=2),
+                    "candidate_answer": answer_text,
+                },
+                output_schema=InterviewEvaluationAIOutput,
+                fallback=fallback_obj,
+                version=1,
+            )
 
-            covered = data.get("covered_points")
-            if not isinstance(covered, dict):
+            if gw_res.telemetry.fallback_used:
                 return None
 
-            # Post-validator: ensure all key point IDs are valid
-            valid_ids = {kp["id"] for kp in key_points}
+            data = gw_res.data
+            if not any(k in valid_ids for k in data.covered_points):
+                logger.info("AI evaluation returned no recognized key points; activating fallback scorer.")
+                return None
+
             bool_map = {
-                k: bool(v) for k, v in covered.items() if k in valid_ids
+                k: bool(v) for k, v in data.covered_points.items() if k in valid_ids
             }
             # Fill missing with False
             for kpid in valid_ids:
                 bool_map.setdefault(kpid, False)
 
-            depth_sig = int(data.get("depth_signal", 60))
-            struct_sig = int(data.get("structure_signal", 60))
-            strengths = data.get("strengths", [])
-            if not isinstance(strengths, list):
-                strengths = []
-            improvements = data.get("improvements", [])
-            if not isinstance(improvements, list):
-                improvements = []
+            # Invariant: Code computes every number (depth and structure signals)
+            depth_sig = compute_depth_signal(answer_text)
+            struct_sig = compute_structure_signal(answer_text)
 
             return {
                 "covered_points_map": bool_map,
-                "depth_signal": max(0, min(100, depth_sig)),
-                "structure_signal": max(0, min(100, struct_sig)),
-                "strengths": [str(s)[:200] for s in strengths[:3]],
-                "improvements": [str(i)[:200] for i in improvements[:3]],
+                "depth_signal": depth_sig,
+                "structure_signal": struct_sig,
+                "strengths": [str(s)[:200] for s in data.strengths[:3]],
+                "improvements": [str(i)[:200] for i in data.improvements[:3]],
             }
         except Exception as e:
             logger.warning(f"AI interview evaluation failed or timed out: {e}")
@@ -217,28 +232,29 @@ class InterviewService:
         missing_points: List[str],
         answer_text: str,
     ) -> Optional[str]:
-        """Generates a targeted, on-topic follow-up question if depth is low or key criteria are missing."""
-        if not self.gateway or not getattr(self.gateway, "provider", None):
+        """Generates a targeted, on-topic follow-up question via LLMGateway."""
+        if not self.gateway:
             return None
 
-        prompt_tpl = self._get_prompt_template("interview_followup_v1.txt")
-        if not prompt_tpl:
-            return None
-
-        prompt = (
-            prompt_tpl.replace("{question_text}", question_text)
-            .replace("{missing_points}", ", ".join(missing_points))
-            .replace("{candidate_answer}", answer_text)
-        )
+        fallback_obj = InterviewFollowUpAIOutput(follow_up_question="")
 
         try:
-            raw = await self.gateway.generate(prompt=prompt)
-            raw = (raw or "").strip()
-            raw = re.sub(r"^```(?:json)?\s*", "", raw)
-            raw = re.sub(r"\s*```$", "", raw)
-            data = json.loads(raw)
-            q_text = str(data.get("follow_up_question", "")).strip()
+            gw_res = await self.gateway.generate(
+                prompt_name="interview_followup",
+                inputs={
+                    "question_text": question_text,
+                    "missing_points": ", ".join(missing_points),
+                    "candidate_answer": answer_text,
+                },
+                output_schema=InterviewFollowUpAIOutput,
+                fallback=fallback_obj,
+                version=1,
+            )
 
+            if gw_res.telemetry.fallback_used:
+                return None
+
+            q_text = gw_res.data.follow_up_question.strip()
             if not q_text or len(q_text) > 250:
                 return None
 
@@ -249,6 +265,7 @@ class InterviewService:
 
             return q_text
         except Exception:
+            return None
             return None
 
     async def submit_answer(

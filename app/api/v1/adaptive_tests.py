@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.llm.gateway import LLMGateway, get_llm_gateway
 from app.models.user import User
 from app.schemas.adaptive_test import (
     FinishTestRequest,
@@ -22,6 +23,13 @@ from app.services.adaptive_test_service import AdaptiveTestService
 router = APIRouter(prefix="/tests", tags=["Adaptive Diagnostic Tests"])
 
 
+def get_adaptive_test_service(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+) -> AdaptiveTestService:
+    return AdaptiveTestService(session, gateway=gateway)
+
+
 @router.get(
     "/history",
     response_model=TestHistoryResponse,
@@ -29,11 +37,10 @@ router = APIRouter(prefix="/tests", tags=["Adaptive Diagnostic Tests"])
 )
 async def get_test_history(
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AdaptiveTestService, Depends(get_adaptive_test_service)],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=50),
 ) -> TestHistoryResponse:
-    service = AdaptiveTestService(session)
     return await service.get_test_history(current_user, page=page, page_size=page_size)
 
 
@@ -45,9 +52,8 @@ async def get_test_history(
 async def get_language_advice(
     req: LanguageAdvisorRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AdaptiveTestService, Depends(get_adaptive_test_service)],
 ) -> LanguageAdvisorResponse:
-    service = AdaptiveTestService(session)
     return await service.get_language_advice(current_user, req)
 
 
@@ -60,9 +66,8 @@ async def get_language_advice(
 async def start_test(
     req: StartTestRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AdaptiveTestService, Depends(get_adaptive_test_service)],
 ) -> StartTestResponse:
-    service = AdaptiveTestService(session)
     return await service.start_test(current_user, req)
 
 
@@ -75,9 +80,8 @@ async def submit_answer(
     test_id: UUID,
     req: SubmitAnswerRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AdaptiveTestService, Depends(get_adaptive_test_service)],
 ) -> SubmitAnswerResponse:
-    service = AdaptiveTestService(session)
     return await service.submit_answer(current_user, test_id, req)
 
 
@@ -90,7 +94,6 @@ async def finish_test(
     test_id: UUID,
     req: FinishTestRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    service: Annotated[AdaptiveTestService, Depends(get_adaptive_test_service)],
 ) -> FinishTestResponse:
-    service = AdaptiveTestService(session)
     return await service.finish_test(current_user, test_id)

@@ -40,7 +40,10 @@ class PromptManager:
         self.prompts_dir = Path(prompts_dir)
 
     def _get_template_path(self, name: str, version: int) -> Path:
-        filename = f"{name}_v{version}.txt"
+        if name.endswith(f"_v{version}"):
+            filename = f"{name}.txt"
+        else:
+            filename = f"{name}_v{version}.txt"
         return self.prompts_dir / filename
 
     def load_template(self, name: str, version: int) -> str:
@@ -70,8 +73,12 @@ class PromptManager:
                 # Strictly isolate user inputs via PromptInjectionDefense
                 rendered_vars[k] = PromptInjectionDefense.wrap_data(k, v)
 
-        # String template formatting
-        try:
-            return template.format(**rendered_vars)
-        except KeyError as err:
-            raise ValueError(f"Missing required variable for prompt template '{name}_v{version}': {err}")
+        # String template formatting that safely handles both {{var}} and {var}
+        # without breaking on literal JSON braces { "foo": "bar" }
+        rendered = template
+        for k, v in rendered_vars.items():
+            # First replace double braces {{ k }}
+            rendered = re.sub(rf"\{{\{{\s*{re.escape(k)}\s*\}}\}}", lambda m, val=v: val, rendered)
+            # Then replace single braces { k }
+            rendered = re.sub(rf"\{{\s*{re.escape(k)}\s*\}}", lambda m, val=v: val, rendered)
+        return rendered

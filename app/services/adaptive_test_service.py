@@ -28,11 +28,14 @@ from app.services.adaptive_test_engine import (
 )
 
 
+from app.llm.gateway import LLMGateway
+
 class AdaptiveTestService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, gateway: Optional[LLMGateway] = None) -> None:
         self.session = session
         self.repo = AdaptiveTestRepository(session)
         self.career_repo = CareerRepository(session)
+        self.gateway = gateway
 
     async def start_test(
         self,
@@ -531,7 +534,7 @@ class AdaptiveTestService:
         next_steps = steps
 
         try:
-            gateway = LLMGateway()
+            gateway = self.gateway or LLMGateway()
             res = await gateway.generate(
                 prompt_name="language_advisor_v1",
                 inputs={

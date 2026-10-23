@@ -573,6 +573,42 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Real-time websocket or SSE requirements in Step 1c necessitate event-driven session locking.
 
+---
+
+## ADR-025: Security Audit Fixes – Access Control Remediation, LLMGateway DI Wiring, and Code-Derived Scoring
+
+- **Options Considered**:
+  - Patching `GET /v1/portfolio/public/{user_id}` with strict visibility filters vs Permanently deleting the endpoint and retaining only vanity slug access `/v1/portfolio/p/{slug}`.
+  - Relying on manual inspection for endpoint access control vs Dynamic AST / route-traversal test enforcing authentication or explicit allowlisting.
+  - Allowing direct provider SDK calls across feature services vs Centralizing all AI invocations through `LLMGateway` injected via FastAPI dependency injection.
+  - Trusting LLM numerical score evaluations vs Constraining LLM to boolean key-point detections with code-computed scores.
+- **Choice**: **Delete Vulnerable IDOR Endpoint, Automated Route-Walk & OpenAPI Snapshot Test, Enforced LLMGateway Dependency Injection with Startup Probe Validation, and Pure Code-Calculated Scoring Engine**
+- **Reason**:
+  - **Why Delete `GET /v1/portfolio/public/{user_id}`**:
+    - Exposing public portfolios via sequential or predictable user identifiers (`user_id`) presents an inherent Broken Object Level Authorization (BOLA/IDOR) risk and user enumeration vector.
+    - Rather than attempting to patch multiple field filters, the endpoint was completely eliminated from both API routes and service logic. The single authorized public entrypoint is now `/v1/portfolio/p/{slug}`, which utilizes randomized or user-chosen alphanumeric slugs with strict visibility whitelisting. Zero references to the old endpoint remain across the codebase.
+  - **Why Automated Route-Walk and OpenAPI Snapshot Testing**:
+    - Human code reviews can easily overlook missing `Depends(get_current_user)` annotations on newly introduced endpoints.
+    - `test_all_endpoints_require_auth_or_are_explicitly_allowlisted` programmatically walks FastAPI's route graph (`app.routes`), inspects the full dependency tree of every APIRoute, and fails immediately if any unauthenticated endpoint is not on the documented allowlist (`EXPLICIT_UNAUTHENTICATED_ALLOWLIST`).
+    - An OpenAPI snapshot test (`test_openapi_snapshot_match`) compares the active schema against `openapi_snapshot.json`, ensuring any route modification or signature drift is surfaced as an explicit diff in CI.
+    - Public slug response test (`test_public_slug_response_contains_no_forbidden_keys`) ensures sensitive fields (`user_id`, `email`, internal IDs, test results, profile fields) never leak.
+  - **Why Gateway Dependency Injection & Readiness Health Check**:
+    - Direct calls or instantiation of model provider SDKs (Google GenAI, OpenAI, Anthropic) outside `app/llm` fragments error handling, rate limiting, and observability.
+    - All AI services (`InterviewService`, `AdaptiveTestService`, `PortfolioService`, `AssessmentService`, `ChatService`) now inject `LLMGateway` via FastAPI's `Depends(get_llm_gateway)`.
+    - An AST test (`test_no_module_outside_app_llm_imports_provider_sdk_or_calls_model`) guarantees that no module outside `app/llm` imports provider SDKs or calls a model directly.
+    - In production/staging (`ENVIRONMENT != "test"`), the `/v1/ready` probe verifies `is_gateway_configured()` and responds with HTTP 503 if credentials are unconfigured, preventing silent cascading failures.
+  - **Why Pure Code-Calculated Interview Scoring**:
+    - Large Language Models are notoriously inconsistent at generating stable numeric grades (susceptible to temperature variance, calibration drift, and sycophancy).
+    - The interview judging prompt (`interview_evaluation_v1.txt`) is restricted strictly to returning boolean detection flags (`covered_points: Dict[str, bool]`), strengths, and improvements.
+    - Every numerical score (`coverage_score`, `depth_score`, `structure_score`, `overall_score`) is calculated deterministically in pure Python code via `compute_depth_signal` and `compute_structure_signal` based on versioned rubric weights, guaranteeing mathematical consistency and fairness.
+  - **Telemetry Fallback Tracking**:
+    - Per-feature fallback counters are tracked in `telemetry.py` and output to log summaries, ensuring degradation to deterministic fallbacks is surfaced to operational monitoring.
+- **Trade-off**:
+  - Adding new public routes requires updating both `EXPLICIT_UNAUTHENTICATED_ALLOWLIST` and `openapi_snapshot.json`. However, this friction is an intentional security guardrail preventing accidental exposure of private endpoints.
+- **Revisit if**:
+  - Dynamic permission matrices (RBAC/ABAC) require per-attribute route decorators beyond `get_current_user`.
+
+
 
 
 
