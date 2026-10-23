@@ -1,4 +1,6 @@
 
+
+import ProfilePage from './ProfilePage'
 import ProgressPage from './ProgressPage'
 import CareerRoadmapPage from './CareerRoadmapPage'
 import CareerComparisonPage from './CareerComparisonPage'
@@ -11,13 +13,22 @@ import {
 import AssessmentPage from './AssessmentPage'
 import './App.css'
 
+type NavigationItem = {
+  name: string
+  icon: typeof Home
+}
+
 const tasks = [
   { title: 'Learn REST API fundamentals', time: '25 min', done: true },
   { title: 'Build your first API endpoint', time: '45 min', done: false },
   { title: 'Test your endpoint', time: '20 min', done: false },
 ]
 
-const navigation = [
+
+
+const navigation: NavigationItem[]= [
+  
+  { name: 'Profile', icon: UserRound },
   { name: 'Home', icon: Home },
   { name: 'Career Assessment', icon: Brain },
   { name: 'Career Comparison', icon: BriefcaseBusiness },
@@ -124,6 +135,8 @@ export default function App() {
               <CareerComparisonPage />
             ) : active === 'Career Assessment' ? (
               <AssessmentPage />
+            ) : active === 'Profile' ? (
+              <ProfilePage />
             ) : active === 'Home' ? (
           <div className="page-content">
             <section className="welcome">
