@@ -48,6 +48,7 @@ def upgrade() -> None:
         sa.Column('status', sa.String(length=32), server_default='in_progress', nullable=False),
         sa.Column('started_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     )

@@ -1274,6 +1274,7 @@ class InMemoryInterviewRepo:
             status="in_progress",
             started_at=now,
             expires_at=expires_at,
+            completed_at=None,
             created_at=now,
             updated_at=now,
         )
@@ -1302,6 +1303,15 @@ class InMemoryInterviewRepo:
 
     async def get_session_by_id(self, session_id: UUID) -> Optional[InterviewSession]:
         return self.storage.get("interview_sessions", {}).get(session_id)
+
+    async def get_question_by_id(self, question_id: UUID) -> Optional[InterviewQuestion]:
+        return self.storage.get("interview_questions", {}).get(question_id)
+
+    async def get_session_overall_result(self, session_id: UUID) -> Optional[InterviewResult]:
+        for r in self.storage.get("interview_results", {}).values():
+            if r.session_id == session_id and r.session_question_id is None:
+                return r
+        return None
 
     async def save_answer(
         self,
@@ -1355,6 +1365,80 @@ class InMemoryInterviewRepo:
             if sq:
                 sq.results = [res]
         return res
+
+    async def add_follow_up_question(
+        self,
+        session_id: UUID,
+        parent_id: UUID,
+        order: int,
+        question_text: str,
+        key_points: List[dict],
+    ) -> SessionQuestion:
+        now = datetime.now(timezone.utc)
+        sqid = uuid4()
+        sq = SessionQuestion(
+            id=sqid,
+            session_id=session_id,
+            question_id=None,
+            parent_session_question_id=parent_id,
+            order=order,
+            question_text=question_text,
+            key_points=list(key_points),
+            is_follow_up=True,
+            created_at=now,
+        )
+        self.storage.setdefault("session_questions", {})[sqid] = sq
+        return sq
+
+    async def update_session(self, session: InterviewSession) -> InterviewSession:
+        session.updated_at = datetime.now(timezone.utc)
+        self.storage.setdefault("interview_sessions", {})[session.id] = session
+        return session
+
+    async def get_completed_sessions_for_user(
+        self,
+        user_id: UUID,
+        type: Optional[str] = None,
+        career_id: Optional[UUID] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[List[InterviewSession], int]:
+        all_s = [
+            s for s in self.storage.get("interview_sessions", {}).values()
+            if s.user_id == user_id and s.status == "completed"
+        ]
+        if type:
+            all_s = [s for s in all_s if s.type == type]
+        if career_id:
+            all_s = [s for s in all_s if s.career_id == career_id]
+        all_s.sort(key=lambda x: (x.completed_at or x.created_at), reverse=True)
+        total = len(all_s)
+        paged = all_s[(page - 1) * page_size : page * page_size]
+        return paged, total
+
+    async def get_completed_sessions_for_analytics(
+        self,
+        user_id: UUID,
+        type: Optional[str] = None,
+    ) -> List[InterviewSession]:
+        all_s = [
+            s for s in self.storage.get("interview_sessions", {}).values()
+            if s.user_id == user_id and s.status == "completed"
+        ]
+        if type:
+            all_s = [s for s in all_s if s.type == type]
+        all_s.sort(key=lambda x: (x.completed_at or x.created_at))
+        return all_s
+
+    async def cleanup_expired_sessions(self) -> int:
+        now = datetime.now(timezone.utc)
+        expired = 0
+        for s in self.storage.get("interview_sessions", {}).values():
+            if s.status == "in_progress" and s.expires_at < now:
+                s.status = "expired"
+                s.updated_at = now
+                expired += 1
+        return expired
 
 
 class MockSession:
@@ -1822,6 +1906,7 @@ async def async_client(test_storage, monkeypatch):
     from app.services.recommendation_service import RecommendationService
     from app.services.portfolio_service import PortfolioService
     from app.services.roadmap_service import RoadmapService
+    from app.services.interview_service import InterviewService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -1898,6 +1983,17 @@ async def async_client(test_storage, monkeypatch):
         self.skill_repo = mock_session.skill_repo
 
     monkeypatch.setattr(RoadmapService, "__init__", mock_roadmap_service_init)
+
+    def mock_interview_service_init(self, repo, skill_repo=None, gateway=None, settings=None):
+        from app.core.config import Settings
+        self.repo = mock_session.interview_repo
+        self.skill_repo = mock_session.skill_repo
+        self.gateway = gateway or LLMGateway(provider=MockLLMProvider())
+        self.settings = settings or Settings()
+        self._prompt_cache = {}
+        self._start_counts = {}
+
+    monkeypatch.setattr(InterviewService, "__init__", mock_interview_service_init)
 
     async def override_get_db():
         yield mock_session

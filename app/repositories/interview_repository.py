@@ -167,6 +167,19 @@ class InterviewRepository:
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()
 
+    async def get_question_by_id(self, question_id: UUID) -> Optional[InterviewQuestion]:
+        stmt = select(InterviewQuestion).where(InterviewQuestion.id == question_id)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_session_overall_result(self, session_id: UUID) -> Optional[InterviewResult]:
+        stmt = select(InterviewResult).where(
+            InterviewResult.session_id == session_id,
+            InterviewResult.session_question_id.is_(None),
+        )
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def save_answer(
         self,
         session_question_id: UUID,
@@ -212,3 +225,96 @@ class InterviewRepository:
         self.session.add(result)
         await self.session.flush()
         return result
+
+    async def add_follow_up_question(
+        self,
+        session_id: UUID,
+        parent_id: UUID,
+        order: int,
+        question_text: str,
+        key_points: List[dict],
+    ) -> SessionQuestion:
+        now = datetime.now(timezone.utc)
+        sq = SessionQuestion(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            question_id=None,
+            parent_session_question_id=parent_id,
+            order=order,
+            question_text=question_text,
+            key_points=list(key_points),
+            is_follow_up=True,
+            created_at=now,
+        )
+        self.session.add(sq)
+        await self.session.flush()
+        return sq
+
+    async def get_completed_sessions_for_user(
+        self,
+        user_id: UUID,
+        type: Optional[str] = None,
+        career_id: Optional[UUID] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[List[InterviewSession], int]:
+        stmt = select(InterviewSession).where(
+            InterviewSession.user_id == user_id,
+            InterviewSession.status == "completed",
+        )
+        if type:
+            stmt = stmt.where(InterviewSession.type == type)
+        if career_id:
+            stmt = stmt.where(InterviewSession.career_id == career_id)
+
+        # Count
+        from sqlalchemy import func
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        count_res = await self.session.execute(count_stmt)
+        total = count_res.scalar_one() or 0
+
+        # Paginate
+        stmt = stmt.order_by(InterviewSession.completed_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all()), total
+
+    async def get_completed_sessions_for_analytics(
+        self,
+        user_id: UUID,
+        type: Optional[str] = None,
+    ) -> List[InterviewSession]:
+        stmt = (
+            select(InterviewSession)
+            .where(
+                InterviewSession.user_id == user_id,
+                InterviewSession.status == "completed",
+            )
+            .options(
+                selectinload(InterviewSession.session_questions).selectinload(SessionQuestion.results),
+            )
+            .order_by(InterviewSession.completed_at.asc())
+        )
+        if type:
+            stmt = stmt.where(InterviewSession.type == type)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def update_session(self, session: InterviewSession) -> InterviewSession:
+        session.updated_at = datetime.now(timezone.utc)
+        await self.session.flush()
+        return session
+
+    async def cleanup_expired_sessions(self) -> int:
+        now = datetime.now(timezone.utc)
+        stmt = select(InterviewSession).where(
+            InterviewSession.status == "in_progress",
+            InterviewSession.expires_at < now,
+        )
+        res = await self.session.execute(stmt)
+        expired = list(res.scalars().all())
+        for s in expired:
+            s.status = "expired"
+            s.updated_at = now
+        await self.session.flush()
+        return len(expired)
+

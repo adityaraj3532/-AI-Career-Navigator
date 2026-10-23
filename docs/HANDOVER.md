@@ -4,59 +4,39 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
-## Session: 2026-10-24 (Antigravity) – Mock Interviews: Database Bank, Session Snapshots, and Pure Rubric Scoring Engine (Step 1a)
+## Session: 2026-10-24 (Antigravity) – Mock Interviews: Complete Execution of Step 1a, Step 1b, and Step 2 (Full Lifecycle, Endpoints, AI Judging, Multilingual Support, and Analytics)
 
 ### Done
-- **Single Alembic Head & Migration 012**:
-  - Confirmed single head at `011_create_user_portfolios`.
-  - Created migration `012_create_mock_interviews.py` adding 5 tables:
-    - `interview_questions`: `career_id` (nullable for shared HR), `type` (`technical`/`hr`), `level` (`beginner`/`intermediate`/`advanced`), `text`, `key_points` JSONB, `sample_answer`, `status` (`draft`/`verified`), `source_note`, `last_verified_at`, `last_verified_by`.
-    - `interview_sessions`: `user_id`, `career_id`, `type`, `level`, `status` (`in_progress`/`completed`/`expired`/`abandoned`), `started_at`, `expires_at`.
-    - `session_questions`: `session_id`, `question_id`, `parent_session_question_id`, `order`, `question_text` (snapshot), `key_points` (snapshot), `is_follow_up`.
-    - `interview_answers`: `session_question_id` (UNIQUE), `user_id`, `answer_text` (max 2000 chars), `submitted_at`.
-    - `interview_results`: `session_id`, `session_question_id`, `rubric_version`, `coverage_score`, `depth_score`, `structure_score`, `overall_score`, `covered_points` JSONB, `scoring_method` (`ai`/`fallback`), `confidence`.
-  - Verified `alembic heads` has single head at `012_create_mock_interviews`.
-- **Pure Versioned Scoring Engine (`app/services/interview_scoring_engine.py`)**:
-  - Rubric version `v1.0.0` with configurable weights (coverage 50%, depth 30%, structure 20%).
-  - `compute_scores_from_coverage`: Pure function computing dimension scores from key-point coverage booleans, depth signal, and structure signal.
-  - Zero penalty for grammar, spelling, or dialect/language choice.
-  - Fallback Scorer (`fallback_score_answer`): Marked `scoring_method="fallback"`, `confidence="low"`.
-    - Documented cap: Normal coverage capped at 70 (full 100 requires AI semantic verification).
-    - Keyword stuffing detection: High keyword density without elaboration is capped strictly at 35 coverage and 15 depth.
-- **Original Seed Data & CLI Verification**:
-  - `app/data/seed/interview_questions.json`: 7 original, rigorously weighted questions (4 SDE technical across beginner/intermediate/advanced; 3 shared HR behavioral questions applying STAR methodology). All seeded as `status="draft"` with weights summing to 1.0.
-  - `scripts/verify_interview_question.py`: CLI to review and verify questions (`--question-id`, `--career`, `--type`, `--all` with required `--reviewer`).
-  - Strict rule enforced: only `verified` questions are served unless `ENV=development` and `ALLOW_DRAFT_QUESTIONS=true`.
-- **Repository Layer (`app/repositories/interview_repository.py`)**:
-  - `get_questions_for_interview`: Filters verified bank questions, raises `InsufficientQuestionsError` if fewer questions exist than required.
-  - `create_session`: Enforces one active session per user (raises `ActiveSessionExistsError`), copies immutable snapshots of question text and `key_points`.
-  - Tests verify that subsequent edits to `interview_questions` never modify `session_questions`.
-- **Comprehensive Unit Tests (`tests/test_mock_interviews_step1a.py`)**:
-  - 14 tests covering all scoring cases (no points, all points, partial coverage, weights sum to 1.0), keyword stuffing penalties, documented caps, zero grammar penalties, version tracking, session snapshot immutability, draft question isolation, and active session limits. All 14 pass in 0.20s.
+- **Full Endpoint Implementation (`app/api/v1/interviews.py`)**:
+  - `POST /v1/interviews/start`: Initiates session for career and level (technical or HR). Strictly verifies verified bank questions, enforces 1 active session per user, token-only user identity, per-user rate limit (10 starts/hour), and strips `key_points` and `sample_answer` to prevent memorization.
+  - `POST /v1/interviews/{id}/answers`: Accepts candidate answer text (max 2000 chars), executes scoring, enforces **zero answer text logging**, reveals model `sample_answer` post-submission, provides actionable strengths & improvements, generates dynamic AI follow-up if depth is low, updates `SkillEvidence` on completion, and includes `practice_guidance_note`.
+  - `GET /v1/interviews/{id}`: Returns complete session transcript and dimension rubric breakdown. Strict multi-tenant isolation (returns HTTP 404 for foreign users).
+  - `GET /v1/interviews/history`: Paginated history of completed interview sessions filterable by `type` and `career_id`.
+  - `GET /v1/interviews/analytics`: Computes dimension progression trends across time (`coverage`, `depth`, `structure`, `overall`); returns `has_sufficient_data: false` and null trends if fewer than 2 comparable sessions exist.
+- **AI Integration & Guardrails (`app/services/interview_service.py`)**:
+  - Evaluation Prompt (`app/llm/prompts/interview_evaluation_v1.txt`): Evaluates candidate responses in English, Hindi, or Hinglish against key points. Returns **booleans only** for key points; code computes the scores via `compute_scores_from_coverage`. Zero penalty for grammar, spelling, or colloquialisms.
+  - Follow-up Prompt (`app/llm/prompts/interview_followup_v1.txt`): Generates on-topic follow-ups (max 1 per question, max 250 chars) when candidate answer is underdeveloped.
+  - Anti-PII Post-Validator: Regex validator strictly rejects any generated follow-up asking for personal identity, contact details, or credentials.
+  - Deterministic fallback to `fallback_score_answer` when gateway is offline or unconfigured.
+- **Skill Tracker Evidence Hook**:
+  - On session completion, idempotently records low-weight capped evidence into `SkillEvidence` (`source_type="interview"`, `score=overall_score`, `source_id=session.id`).
+- **Testing & Quality Assurance**:
+  - 14 tests in `tests/test_mock_interviews_step1a.py` (scoring engine, fallback caps, keyword stuffing penalty, snapshot immutability).
+  - 11 tests in `tests/test_mock_interviews_api.py` (auth, start, conflict handling, answer submission, sample answer reveal, foreign 404 isolation, analytics with $< 2$ and $\ge 2$ sessions, history pagination).
+  - 100% of the entire project test suite passes cleanly with zero failures.
+  - Code hygiene: `ruff check app tests scripts` passes with 0 errors.
 
-### Skill Evidence Weight Order & Hook Specification
-Mock interview completions will record low-weight evidence into `SkillEvidence` (`source_type="interview"`, `score=overall_score`, `source_id=session.id`).
-**Proposed Provenance Weight Order**:
-1. `source_type="test"`: Weight 1.0 (verified adaptive diagnostic assessment).
-2. `source_type="project"`: Weight 0.8 (reviewed repository/project deliverable).
-3. `source_type="roadmap"`: Weight 0.5 (verified roadmap milestone completion).
-4. `source_type="interview"`: Weight 0.4 (mock interview conversational practice; capped progression to ensure practice does not bypass formal tests).
-5. `source_type="declared"`: Weight 0.2 (self-reported skill declaration).
-*Note*: Feedback delivered to candidates is practice guidance to aid student learning and interview preparation.
+### Active Invariants
+- Zero LLM calls synchronously inside any GET endpoint.
+- All scores, levels, match calculations, and progression rules are deterministic Python code. AI only judges booleans and phrases feedback.
+- Candidate answer text is NEVER logged in application or server logs.
+- Never penalise grammar, spelling, or language choice (English, Hindi, and Hinglish supported).
+- Session questions and key points are immutable snapshots.
+- Key points and reference sample answers are hidden until answer submission.
+- Foreign user resources always return HTTP 404.
+- All request schemas enforce `extra="forbid"`.
 
-### Pending Steps for Mock Interviews
-- **Step 1b (Endpoints & Session Lifecycle)**:
-  - `POST /v1/interviews/start`: career, level, type (technical/hr), max 3-5 questions. Enforce one active session per user, token-only user ID, 404 for other users' sessions.
-  - `POST /v1/interviews/{id}/answer`: max 2000 chars, never log answer text, returns feedback and sample answer after submission (never before).
-  - `GET /v1/interviews/{id}`: transcript with questions, answers, rubric scores, feedback, sample answers.
-  - `GET /v1/interviews/history`: paginated session history.
-  - `GET /v1/interviews/analytics`: score progression over time across dimensions; returns null if fewer than 2 comparable sessions (same type and rubric_version).
-  - Background expiry job for abandoned/expired sessions; cascading account deletion.
-- **Step 2 (AI Integration & Multilingual Support)**:
-  - AI key-point judging via `LLMGateway` (returns booleans only, never numbers); code computes scores.
-  - Support for Hindi/Hinglish candidate answers.
-  - Dynamic AI follow-up generator (max 1 per question, on-topic, length-capped, post_validator rejects personal detail requests).
-  - Per-session cost accounting and token tracking.
+---
 
 ### Active Invariants
 - Zero LLM calls synchronously inside any GET endpoint.

@@ -448,6 +448,33 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Automated speech-to-text / real-time voice latency requires edge streaming evaluation rather than asynchronous text evaluation.
 
+---
+
+## ADR-021: Mock Interview Full Lifecycle (Step 1b & Step 2) – Deferred Feedback, Privacy Invariant, Multi-Lingual Judging, and PII-Defended Follow-ups
+
+- **Options Considered**:
+  - Revealing key points and model sample answers upfront before candidate submission vs Strictly hiding them until after submission.
+  - Logging candidate answer text in application and access logs vs Zero raw answer logging for privacy protection.
+  - Unbounded AI follow-up loops vs Strictly capping at 1 follow-up with length bounds ($\le 250$ chars) and anti-PII post-validation.
+  - Returning analytical trend metrics with single attempts vs Strictly requiring $\ge 2$ comparable sessions (same type and rubric version).
+- **Choice**: **Deferred Feedback & Sample Answers, Zero Raw Answer Text Logging Invariant, Multi-Lingual LLM Judging over Gateway (Hindi/Hinglish/English), Capped PII-Defended Follow-ups, and Rigorous $\ge 2$ Session Analytics Boundary**
+- **Reason**:
+  - **Educational Integrity via Deferred Feedback**:
+    - Disclosing key points or reference answers prior to submission compromises the assessment by enabling memorization rather than spontaneous problem-solving. `StartInterviewResponse` strips all criteria and reference answers. Feedback and sample answers are revealed exclusively upon answer submission.
+  - **Zero Answer Text Logging for Student Privacy**:
+    - Candidates share behavioral narratives, team conflicts, and personal experiences. To safeguard user privacy and prevent data leakage into log aggregation platforms (e.g. Datadog, CloudWatch), candidate answer text is explicitly barred from application logs.
+  - **Multi-Lingual Comprehension (Hindi/Hinglish/English)**:
+    - Many engineers in India and bilingual environments articulate technical solutions using code-switching (e.g. *"Humne Redis cache implement kiya to reduce database load"*). The LLM evaluation prompt (`interview_evaluation_v1.txt`) is instructed to comprehend multi-lingual concepts accurately while scoring purely on substantive criteria.
+  - **PII Defense on Dynamic AI Follow-ups**:
+    - Follow-ups probe missing depth or omitted key points (max 1 per question, up to session max 5). To prevent adversarial prompt injection or inappropriate data harvesting, all AI-generated follow-up questions pass through a strict regex post-validator rejecting any inquiries into personal identity, contact details, or credentials.
+  - **Analytics Integrity**:
+    - Improvement trends across rubric dimensions (`coverage`, `depth`, `structure`, `overall`) require at least 2 comparable sessions under the same rubric version. When $< 2$ sessions exist, analytics return `has_sufficient_data: false` with null trends to prevent misleading or invalid trend lines.
+- **Trade-off**:
+  - Requires maintaining dedicated prompt templates and post-validators in the gateway layer.
+- **Revisit if**:
+  - Real-time video/audio conversational mock interviews require streaming WebRTC connections.
+
+
 
 
 

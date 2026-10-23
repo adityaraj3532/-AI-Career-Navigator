@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class KeyPointItem(BaseModel):
@@ -77,3 +77,143 @@ class InterviewQuestionResponse(BaseModel):
     source_note: Optional[str] = None
     last_verified_at: Optional[datetime] = None
     created_at: datetime
+
+
+class StartInterviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    career_id: Optional[UUID] = None
+    type: Literal["technical", "hr"]
+    level: Literal["beginner", "intermediate", "advanced"]
+    num_questions: int = Field(default=3, ge=1, le=5)
+
+    @model_validator(mode="after")
+    def validate_career_for_technical(self) -> "StartInterviewRequest":
+        if self.type == "technical" and not self.career_id:
+            raise ValueError("career_id is required for technical mock interviews.")
+        return self
+
+
+class PublicSessionQuestion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    order: int
+    question_text: str
+    is_follow_up: bool = False
+
+
+class StartInterviewResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: UUID
+    career_id: Optional[UUID] = None
+    type: str
+    level: str
+    status: str
+    expires_at: datetime
+    current_question: PublicSessionQuestion
+    total_questions: int
+
+
+class SubmitAnswerRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_question_id: UUID
+    answer_text: str = Field(..., min_length=1, max_length=2000)
+
+
+class QuestionFeedbackResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_question_id: UUID
+    scores: DimensionScores
+    covered_points: List[str]
+    scoring_method: Literal["ai", "fallback"]
+    confidence: Literal["high", "medium", "low"]
+    strengths: List[str] = Field(default_factory=list)
+    improvements: List[str] = Field(default_factory=list)
+    sample_answer: Optional[str] = None
+    next_question: Optional[PublicSessionQuestion] = None
+    session_completed: bool
+    practice_guidance_note: str = Field(default="Feedback is practice guidance to support interview preparation.")
+
+
+class TranscriptItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_question_id: UUID
+    order: int
+    question_text: str
+    is_follow_up: bool
+    answer_text: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    scores: Optional[DimensionScores] = None
+    covered_points: List[str] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    improvements: List[str] = Field(default_factory=list)
+    sample_answer: Optional[str] = None
+
+
+class SessionDetailResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: UUID
+    career_id: Optional[UUID] = None
+    type: str
+    level: str
+    status: str
+    started_at: datetime
+    expires_at: datetime
+    completed_at: Optional[datetime] = None
+    overall_score: Optional[int] = None
+    coverage_score: Optional[int] = None
+    depth_score: Optional[int] = None
+    structure_score: Optional[int] = None
+    questions: List[TranscriptItem]
+    practice_guidance_note: str = Field(default="Feedback is practice guidance to support interview preparation.")
+
+
+class InterviewHistoryItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: UUID
+    career_id: Optional[UUID] = None
+    type: str
+    level: str
+    status: str
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    overall_score: Optional[int] = None
+    coverage_score: Optional[int] = None
+    depth_score: Optional[int] = None
+    structure_score: Optional[int] = None
+
+
+class InterviewHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: List[InterviewHistoryItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class DimensionTrend(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dimension: str
+    average_score: float
+    change_pct: float
+    progression: List[int]
+
+
+class InterviewAnalyticsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    has_sufficient_data: bool
+    total_completed: int
+    message: Optional[str] = None
+    trends: Optional[Dict[str, DimensionTrend]] = None
+    weakest_dimension: Optional[str] = None
+    strongest_dimension: Optional[str] = None
