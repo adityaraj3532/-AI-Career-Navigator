@@ -639,6 +639,38 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Multi-modal prompts (image/audio) require binary token isolation.
 
+---
+
+## ADR-027: Multi-Layer Timeouts, Strict Retry Boundaries, and Deterministic Fallback Matrix
+
+- **Options Considered**:
+  - Unbounded or provider-dependent timeouts vs Hard multi-layer `asyncio.wait_for` wrappers across network boundaries.
+  - Aggressive exponential retries for all errors vs Zero retries on network/timeout failures and exactly one retry only on JSON/Pydantic validation errors.
+  - Failing request with 500 when AI is unavailable vs Graceful degradation via deterministic, pre-computed fallback models across all user-facing features and asynchronous workers.
+- **Choice**: **Multi-Layer Defensive Timeouts (15s per-call, 20s overall LLM budget, 3s DB health, 2s Redis health, 0.5s rate-limit Redis probe), Strict Retry Policy (max 1 retry, strictly for validation/JSON parsing errors), and Universal Deterministic Fallback Matrix**
+- **Reason**:
+  - **Multi-Layer Timeout Defense-in-Depth**:
+    - Relying on external provider SDK timeouts is brittle (mock providers, buggy SDKs, or network hangs can freeze async event loops).
+    - `LLMGateway._call_provider_with_budget` wraps `self.provider.generate()` directly in `asyncio.wait_for(..., timeout=call_timeout)` ensuring a hard 15.0s ceiling per call.
+    - An overall `budget_remaining` timer caps total latency to 20.0s regardless of retry attempts or caller loops.
+    - System readiness probes (`/ready`) cannot hang: `check_db_health` wraps `engine.connect()` in `asyncio.wait_for(..., timeout=3.0)` and `check_redis_health` wraps `client.ping()` in `asyncio.wait_for(..., timeout=2.0)`.
+    - Chat rate limiter wraps Redis pipeline queries in `asyncio.wait_for(..., timeout=0.5)`, failing open to an in-memory sliding window cache if Redis experiences latency spikes.
+  - **Strict Retry Boundaries**:
+    - Network blips, provider outages, quota limits (`RateLimitError`), and timeouts indicate upstream exhaustion; retrying them wastes latency and worsens cascading failure storms.
+    - The gateway explicitly permits **at most 1 retry**, and **only** when the provider returned text but Pydantic JSON deserialization failed (`OutputParsingError` / `ValidationError`). If the single retry fails or any other exception occurs, execution immediately yields to the deterministic fallback.
+  - **Universal Deterministic Fallback Matrix**:
+    - Every AI-powered feature has a guaranteed deterministic fallback returning valid Pydantic models:
+      - **Interview Scoring**: Pure code heuristic scoring (`fallback_score_answer`) based on candidate text length and rubric keyword matches (`confidence="low"`), guaranteeing interviews never abort mid-session.
+      - **Interview Follow-ups**: Returns `None` gracefully skipping follow-up generation rather than halting interview progression.
+      - **Portfolio Pitch**: Deterministic template generated from project metrics and tech stacks.
+      - **AI Chat**: Deterministic guidance message with `ai_status="fallback"` and predefined resource links.
+      - **Weekly Progress Summary (Worker)**: Deterministic markdown summary generated from database activity ledger, streak counts, and completed roadmap items.
+- **Trade-off**:
+  - Strict 15s/20s bounds terminate unusually slow generative reasoning streams, but preserve platform responsiveness and bounded worst-case latency.
+- **Revisit if**:
+  - Offline batch generation tasks (e.g. bulk catalog enrichment) require asynchronous execution horizons greater than 60s.
+
+
 
 
 

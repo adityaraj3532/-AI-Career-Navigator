@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import AsyncGenerator
 from sqlalchemy import text
@@ -48,9 +49,12 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def check_db_health() -> bool:
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        return True
+        async def _ping() -> bool:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            return True
+
+        return await asyncio.wait_for(_ping(), timeout=3.0)
     except Exception as exc:
         logger.warning("PostgreSQL health check failed: %s", exc)
         return False

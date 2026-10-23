@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 from redis.asyncio import Redis, from_url
@@ -32,7 +33,7 @@ async def close_redis() -> None:
 async def check_redis_health() -> bool:
     try:
         client = get_redis_client()
-        pong = await client.ping()
+        pong = await asyncio.wait_for(client.ping(), timeout=2.0)
         return bool(pong)
     except Exception as exc:
         logger.warning("Redis health check failed: %s", exc)

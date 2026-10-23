@@ -106,9 +106,12 @@ class LLMGateway:
             if remaining_overall <= 0:
                 raise asyncio.TimeoutError("Overall time budget of 20s exceeded.")
             call_timeout = min(self.per_call_timeout, remaining_overall)
-            return await self.provider.generate(
-                prompt=rendered_prompt,
-                schema=schema,
+            return await asyncio.wait_for(
+                self.provider.generate(
+                    prompt=rendered_prompt,
+                    schema=schema,
+                    timeout=call_timeout,
+                ),
                 timeout=call_timeout,
             )
 

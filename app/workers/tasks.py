@@ -83,10 +83,11 @@ async def generate_career_compatibility_explanation(ctx: Dict[Any, Any], snapsho
 
     try:
         gw_res = await gateway.generate(
-            prompt_name="career_compatibility_v1",
+            prompt_name="career_compatibility",
             inputs=inputs,
             output_schema=CompatibilityExplanationOutput,
             fallback=fallback,
+            version=1,
         )
         data = gw_res.data.model_dump()
     except Exception as exc:
@@ -137,10 +138,11 @@ async def generate_skill_report_narrative(
 
     try:
         gw_res = await gateway.generate(
-            prompt_name="career_skill_report_v1",
+            prompt_name="career_skill_report",
             inputs=inputs,
             output_schema=SkillReportNarrativeOutput,
             fallback=fallback,
+            version=1,
         )
         data = gw_res.data.model_dump()
     except Exception as exc:
@@ -225,6 +227,12 @@ async def generate_weekly_progress_summary(ctx: Dict[Any, Any], user_id_str: str
             "encouragement": "Consistent daily engagement builds durable expertise.",
         }
 
+        fallback_model = WeeklyProgressSummaryOutput(
+            weekly_summary=fallback_data["weekly_summary"],
+            highlights=fallback_data["highlights"],
+            encouragement=fallback_data["encouragement"],
+        )
+
         # Try LLM Gateway with template fallback
         gateway = LLMGateway()
         inputs = {
@@ -236,13 +244,13 @@ async def generate_weekly_progress_summary(ctx: Dict[Any, Any], user_id_str: str
         data = fallback_data
         try:
             gw_res = await gateway.generate(
-                prompt_name="weekly_progress_summary_v1",
+                prompt_name="weekly_progress_summary",
                 inputs=inputs,
                 output_schema=WeeklyProgressSummaryOutput,
-                temperature=0.3,
+                fallback=fallback_model,
+                version=1,
             )
-            if gw_res.structured_output:
-                data = gw_res.structured_output.model_dump()
+            data = gw_res.data.model_dump()
         except Exception as exc:
             logger.info("LLM weekly summary generation fallback used: %s", exc)
 

@@ -4,6 +4,50 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 4: Multi-Layer Timeouts, Strict Retry Boundaries, & Deterministic Fallbacks)
+
+### Done
+- **Gateway Direct Timeout Enforcement (`app/llm/gateway.py`)**:
+  - Wrapped `self.provider.generate(...)` calls directly in `asyncio.wait_for(..., timeout=call_timeout)` within `_call_provider_with_budget`.
+  - Ensures a strict 15.0s per-call ceiling even if the underlying model provider SDK or mock provider hangs.
+  - Overall budget timer caps cumulative execution across retries to 20.0s.
+  - Retries strictly restricted: exactly 1 retry ONLY for JSON/Pydantic validation errors (`OutputParsingError` / `ValidationError`). 0 retries on timeouts or network failures.
+- **Probe Resilience & Bounded Health Checks (`app/core/database.py`, `app/core/redis.py`)**:
+  - Wrapped `check_db_health()` in `asyncio.wait_for(..., timeout=3.0)` so hanging PostgreSQL connections return `False` rather than hanging `/ready` probes.
+  - Wrapped `check_redis_health()` in `asyncio.wait_for(client.ping(), timeout=2.0)`.
+  - Rate-limit redis calls bound to 0.5s with automatic in-memory sliding window fallback.
+- **Worker & Service Deterministic Fallbacks (`app/workers/tasks.py`)**:
+  - Aligned worker prompt naming conventions (removed `_v1` duplicate suffixes) and fixed `generate_weekly_progress_summary` call signature to pass `fallback=fallback_model` and `version=1`.
+  - Verified deterministic fallbacks across interview scoring (`fallback_score_answer`), interview follow-up (`None`), portfolio pitch, chat responses, and weekly progress summaries.
+- **Timeouts & Fallbacks Verification Test Suite (`tests/test_timeouts_and_fallbacks.py`)**:
+  - 10 comprehensive tests:
+    - `test_gateway_timeout_activates_fallback_without_retry`: Asserts timeout triggers fallback in 1 attempt.
+    - `test_gateway_overall_budget_timeout`: Asserts 20.0s overall budget limits cumulative latency.
+    - `test_gateway_retries_once_on_validation_failure_only`: Asserts validation failure triggers exactly 1 retry before falling back.
+    - `test_database_health_check_timeout`: Asserts hanging DB connection returns False within 3s.
+    - `test_redis_health_check_timeout`: Asserts hanging Redis connection returns False within 2s.
+    - `test_chat_rate_limiter_in_memory_fallback_on_redis_timeout`: Asserts sliding-window limiter fails open to in-memory on Redis timeout.
+    - `test_interview_scoring_deterministic_fallback`: Asserts fallback score produces code-calculated rubric signals.
+    - `test_interview_followup_deterministic_fallback`: Asserts gateway failure returns None without aborting interview.
+    - `test_portfolio_pitch_deterministic_fallback`: Asserts portfolio pitch falls back gracefully.
+    - `test_worker_weekly_progress_summary_fallback_on_gateway_error`: Asserts background worker job generates deterministic progress markdown on LLM failure.
+- **Testing & Verification**:
+  - `tests/test_timeouts_and_fallbacks.py`: 10 passed in 9.99s.
+  - Full test suite: **261 passed, 1 skipped**, 0 failures in 160s.
+  - Code hygiene: `ruff check app tests` passed with 0 errors.
+
+### Active Invariants
+- LLM calls have a strict 15.0s per-call timeout and 20.0s total budget ceiling.
+- Database health check has a hard 3.0s timeout; Redis health check has a hard 2.0s timeout.
+- Retries are strictly limited to at most 1 attempt, and only triggered on JSON/schema parsing failures.
+- Timeouts, network errors, and quota exhaustion trigger deterministic fallbacks immediately with zero retries.
+
+### Pending / Next Items
+- **Security Audit Fix 5 (Demo Account Seeding Script)**: Seed a realistic demo account with completed profile, assessment, shortlist, roadmap, progress, and portfolio.
+- **Security Audit Fix 6 (Security Architecture Documentation)**: Draft `DEFENSE.md`, `DECISIONS.md`, `ALTERNATIVES.md`, `THREAT.md`, `FAILURE.md`, and `DATA.md` from actual code.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 3: Prompt Injection Defense in Gateway)
 
 ### Done
