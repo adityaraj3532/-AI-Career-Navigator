@@ -45,6 +45,7 @@ from app.models.roadmap import (
     TemplatePhase,
     TemplateItem,
 )
+from app.models.recommendation import RecommendationAction
 from app.models.user import User
 from app.schemas.assessment import AnswerItem
 
@@ -708,6 +709,160 @@ class InMemorySkillRepo:
         return us
 
 
+class InMemoryRecommendationRepo:
+    def __init__(self, storage: Dict[str, Any]) -> None:
+        self.storage = storage
+
+    async def get_user_actions(self, user_id: UUID) -> Dict[Tuple[str, str], str]:
+        actions = self.storage.get("recommendation_actions", {})
+        return {
+            (a.item_type, str(a.item_id)): a.state
+            for a in actions.values()
+            if a.user_id == user_id
+        }
+
+    async def get_action(self, user_id: UUID, item_type: str, item_id: UUID) -> Optional[RecommendationAction]:
+        actions = self.storage.get("recommendation_actions", {})
+        for a in actions.values():
+            if a.user_id == user_id and a.item_type == item_type and a.item_id == item_id:
+                return a
+        return None
+
+    async def upsert_action(self, user_id: UUID, item_type: str, item_id: UUID, state: str) -> RecommendationAction:
+        action = await self.get_action(user_id, item_type, item_id)
+        now = datetime.now(timezone.utc)
+        if action:
+            action.state = state
+            action.updated_at = now
+            return action
+        else:
+            action = RecommendationAction(
+                id=uuid4(),
+                user_id=user_id,
+                item_type=item_type,
+                item_id=item_id,
+                state=state,
+                created_at=now,
+                updated_at=now,
+            )
+            self.storage["recommendation_actions"][action.id] = action
+            return action
+
+    async def delete_action(self, user_id: UUID, item_type: str, item_id: UUID) -> bool:
+        action = await self.get_action(user_id, item_type, item_id)
+        if action:
+            del self.storage["recommendation_actions"][action.id]
+            return True
+        return False
+
+    async def get_item_by_id_and_type(self, item_type: str, item_id: UUID) -> Optional[Any]:
+        if item_type == "course":
+            return self.storage.get("courses", {}).get(item_id)
+        elif item_type == "certificate":
+            return self.storage.get("certificates", {}).get(item_id)
+        elif item_type == "internship":
+            return self.storage.get("internships", {}).get(item_id)
+        elif item_type == "resource":
+            return self.storage.get("template_items", {}).get(item_id)
+        return None
+
+    async def load_all_candidate_items(self, career_id: Optional[UUID] = None, item_type_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+        candidates = []
+        if item_type_filter in (None, "course"):
+            for c in self.storage.get("courses", {}).values():
+                c_ids = [career.id for career in getattr(c, "careers", [])]
+                if career_id and career_id not in c_ids:
+                    continue
+                candidates.append({
+                    "id": c.id,
+                    "item_type": "course",
+                    "title": c.title,
+                    "provider": c.degree_level,
+                    "cost_inr": c.cost_inr,
+                    "duration": c.duration,
+                    "mode": c.mode or "offline",
+                    "location": c.location,
+                    "eligibility": c.eligibility,
+                    "application_deadline": c.application_deadline,
+                    "expires_at": c.expires_at,
+                    "source_url": c.source_url,
+                    "status": c.status,
+                    "last_verified_at": c.last_verified_at,
+                    "career_ids": c_ids,
+                    "domain": c.degree_level,
+                })
+        if item_type_filter in (None, "certificate"):
+            for cert in self.storage.get("certificates", {}).values():
+                c_ids = [career.id for career in getattr(cert, "careers", [])]
+                if career_id and career_id not in c_ids:
+                    continue
+                candidates.append({
+                    "id": cert.id,
+                    "item_type": "certificate",
+                    "title": cert.name,
+                    "provider": cert.issuing_organization,
+                    "cost_inr": cert.cost_inr,
+                    "duration": cert.duration,
+                    "mode": cert.mode or "online",
+                    "location": cert.location,
+                    "eligibility": cert.eligibility,
+                    "application_deadline": cert.application_deadline,
+                    "expires_at": cert.expires_at,
+                    "source_url": cert.url or cert.source_url,
+                    "status": cert.status,
+                    "last_verified_at": cert.last_verified_at,
+                    "career_ids": c_ids,
+                    "domain": cert.issuing_organization,
+                })
+        if item_type_filter in (None, "internship"):
+            for intern in self.storage.get("internships", {}).values():
+                c_ids = [career.id for career in getattr(intern, "careers", [])]
+                if career_id and career_id not in c_ids:
+                    continue
+                dur_str = intern.duration or (f"{intern.duration_months} months" if intern.duration_months else None)
+                candidates.append({
+                    "id": intern.id,
+                    "item_type": "internship",
+                    "title": intern.title,
+                    "provider": intern.domain,
+                    "cost_inr": intern.cost_inr if intern.cost_inr is not None else 0,
+                    "duration": dur_str,
+                    "mode": intern.mode or ("online" if "Remote" in intern.locations else "offline"),
+                    "location": intern.location,
+                    "locations": intern.locations,
+                    "eligibility": intern.eligibility,
+                    "application_deadline": intern.application_deadline,
+                    "expires_at": intern.expires_at,
+                    "source_url": intern.source_url,
+                    "status": intern.status,
+                    "last_verified_at": intern.last_verified_at,
+                    "career_ids": c_ids,
+                    "domain": intern.domain,
+                })
+        if item_type_filter in (None, "resource"):
+            for r in self.storage.get("template_items", {}).values():
+                dur_str = f"{r.estimated_minutes} mins" if r.estimated_minutes else None
+                candidates.append({
+                    "id": r.id,
+                    "item_type": "resource",
+                    "title": r.title,
+                    "provider": r.topic,
+                    "cost_inr": 0,
+                    "duration": dur_str,
+                    "mode": "online",
+                    "location": None,
+                    "eligibility": None,
+                    "application_deadline": None,
+                    "expires_at": None,
+                    "source_url": r.source_url,
+                    "status": r.status,
+                    "last_verified_at": r.last_verified_at,
+                    "career_ids": [],
+                    "topic": r.topic,
+                })
+        return candidates
+
+
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.storage = storage
@@ -730,6 +885,7 @@ class MockSession:
             storage["skill_evidence"],
             storage["user_skills"],
         )
+        self.recommendation_repo = InMemoryRecommendationRepo(storage)
 
 
     def add(self, instance):
@@ -825,6 +981,7 @@ async def test_storage():
         "roadmap_items": {},
         "replan_history": {},
         "exam_cycles": {},
+        "recommendation_actions": {},
     }
 
     # Pre-seed assessment questions
@@ -1134,6 +1291,7 @@ async def async_client(test_storage, monkeypatch):
     from app.services.compatibility_service import CompatibilityService
     from app.services.adaptive_test_service import AdaptiveTestService
     from app.services.skill_service import SkillService
+    from app.services.recommendation_service import RecommendationService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -1186,6 +1344,15 @@ async def async_client(test_storage, monkeypatch):
         self.repo = mock_session.skill_repo
 
     monkeypatch.setattr(SkillService, "__init__", mock_skill_service_init)
+
+    def mock_recommendation_service_init(self, session):
+        self.session = mock_session
+        self.repo = mock_session.recommendation_repo
+        self.career_repo = mock_session.career_repo
+        self.profile_repo = mock_session.profile_repo
+        self.skill_repo = mock_session.skill_repo
+
+    monkeypatch.setattr(RecommendationService, "__init__", mock_recommendation_service_init)
 
     async def override_get_db():
         yield mock_session

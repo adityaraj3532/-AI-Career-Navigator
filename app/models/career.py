@@ -393,6 +393,30 @@ class Course(Base):
         Text,
         nullable=False,
     )
+    cost_inr: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    mode: Mapped[Optional[str]] = mapped_column(
+        String(32),
+        nullable=True,
+    )  # "online" | "offline" | "hybrid"
+    location: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )  # null for online
+    eligibility: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    application_deadline: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     source_url: Mapped[str] = mapped_column(
         String(512),
         nullable=False,
@@ -454,6 +478,34 @@ class Certificate(Base):
     )
     url: Mapped[Optional[str]] = mapped_column(
         String(512),
+        nullable=True,
+    )
+    cost_inr: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    duration: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    mode: Mapped[Optional[str]] = mapped_column(
+        String(32),
+        nullable=True,
+    )  # "online" | "offline" | "hybrid"
+    location: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )  # null for online
+    eligibility: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    application_deadline: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
         nullable=True,
     )
     source_url: Mapped[str] = mapped_column(
@@ -520,6 +572,10 @@ class Internship(Base):
         Integer,
         nullable=True,
     )
+    duration: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+    )
     locations: Mapped[List[str]] = mapped_column(
         JSONB,
         default=list,
@@ -528,6 +584,30 @@ class Internship(Base):
     description: Mapped[str] = mapped_column(
         Text,
         nullable=False,
+    )
+    cost_inr: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    mode: Mapped[Optional[str]] = mapped_column(
+        String(32),
+        nullable=True,
+    )  # "online" | "offline" | "hybrid"
+    location: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )  # null for online
+    eligibility: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    application_deadline: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
     source_url: Mapped[str] = mapped_column(
         String(512),

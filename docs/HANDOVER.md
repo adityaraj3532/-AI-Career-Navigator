@@ -4,6 +4,71 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-23 (Antigravity) – Recommendations Engine & Actions (Step 1a)
+
+### Done
+- **Data Models & Migration**:
+  - Schema extension on existing `courses`, `certificates`, `internships` (`app/models/career.py`):
+    - Reused existing tables without duplicate entities.
+    - Added missing columns: `cost_inr` (int nullable), `duration` (string nullable), `mode` ("online" | "offline" | "hybrid"), `location` (JSONB nullable), `eligibility` (JSONB nullable), `application_deadline` (DateTime nullable), `expires_at` (DateTime nullable).
+  - New Model `RecommendationAction` (`app/models/recommendation.py`):
+    - `id` (UUID PK), `user_id` (FK to users ondelete CASCADE, indexed), `item_type` (internship/course/certificate/resource), `item_id` (UUID), `state` (saved/dismissed/done), `created_at`, `updated_at`.
+    - `UniqueConstraint("user_id", "item_type", "item_id", name="uq_recommendation_actions_user_item")`.
+    - Exported in `app/models/__init__.py`.
+  - Alembic Migration `009_create_recommendations_and_actions.py`:
+    - Full upgrade and downgrade static SQL validation.
+- **Pure Recommendation Engine (`app/services/recommendation_engine.py`)**:
+  - `is_item_active_and_verified`: Enforces 90-day verification freshness window (`(now - last_verified).days <= 90`) and hides expired opportunities (`expires_at` / `application_deadline`), with dev bypass (`ALLOW_DRAFT_CAREERS=true`).
+  - `filter_recommendation_candidates`: Filters candidates against budget tiers (`low` <= 50k INR, `medium` <= 250k INR, `high` unconstrained), location (online matches all; offline/hybrid matches user city/state/locations), hours available, and user action states (dismissed hidden unless explicitly requested; done excluded).
+  - `score_and_rank_item` & `rank_recommendations`:
+    - Multi-factor scoring: career match (30–40 pts), tested skill gap fit (15 pts bonus for tested skill < 2.5), location/mode fit (5–10 pts), cost fit (5–10 pts).
+    - Deterministic tie-break: `(-match_score, title.lower(), str(id))`.
+    - Deterministic `why_it_fits`: Pure code string generator directly mapping matched criteria; never calls AI.
+    - Non-personalized fallback: If user lacks profile or skills, returns default recommendations with `personalised = False`.
+- **Repository, Service & API Router**:
+  - `RecommendationRepository` (`app/repositories/recommendation_repository.py`):
+    - Bulk-loads candidates across courses, certificates, internships, and template items.
+    - Bulk-loads user interaction records in a single query to eliminate N+1 queries.
+  - `RecommendationService` (`app/services/recommendation_service.py`):
+    - Enforces sliding-window rate limit (30 actions/min per user).
+    - `state="done"` completion hook: automatically registers low-weight skill evidence (`source_type="roadmap"` or `"project"`, level_signal `"intermediate"`) and updates `UserSkill`.
+  - Router (`app/api/v1/recommendations.py`):
+    - `GET /v1/recommendations` with query filters (`career_id`, `item_type`, `budget_level`, `max_budget_inr`, `location`, `max_hours`, `include_dismissed`, `saved_only`, pagination).
+    - `POST /v1/recommendations/{item_type}/{item_id}/action` with `extra="forbid"` validation, token authentication, and 404 for unknown/unverified items.
+- **Testing & Quality Assurance**:
+  - 7 comprehensive unit and integration tests in `tests/test_recommendations.py`:
+    - Staleness (> 90 days) and expiration filtering.
+    - Constraint filtering (budget, location, actions).
+    - Deterministic ranking & tie-break.
+    - Personalisation flag (`False` for fresh users, `True` after profile update).
+    - Action lifecycle (save, dismiss, restore via `none`, mark `done`).
+    - Automated skill evidence creation and idempotency.
+    - Rate limit enforcement (30 requests/min, 429 on 31st).
+    - Strict validation (`extra="forbid"`, 422 on invalid types, 404 on unverified items).
+  - Full project test suite execution: **118 passed, 1 skipped** (live Gemini smoke test).
+  - Code hygiene: `ruff check app tests scripts` passes cleanly with 0 errors.
+- **Documentation**:
+  - Added ADR-016 in `docs/DECISIONS.md`.
+
+### Pending Hooks & Features
+- **Step 1b (later)**:
+  - `GET /v1/portfolio`: read-only aggregation of user profile, completed courses/certificates/internships/resources, verified projects, and skill tracker mastery.
+- **Later steps**:
+  - Public portfolio page, PDF resume exporter, AI-written portfolio summary.
+  - Stage 2: Background ARQ worker for AI enrichment of `why_it_fits` (never in GET).
+- **Kept Pending from Previous Steps**:
+  - Roadmap Step 1b endpoints (`POST /v1/roadmaps`, `GET /v1/roadmaps/{id}`, `PATCH /v1/roadmaps/items/{id}`, `POST /v1/roadmaps/{id}/replan`).
+  - Adaptive test Stage 2 (`GET /v1/tests/history`, language advisor).
+  - Skill tracker Step 2 (background ARQ worker for AI skill report narrative).
+
+### Do not touch
+- Never mark anything "free" unless verified (`is_free: bool` requires `cost_inr == 0` AND verified).
+- Never call AI inside GET requests; `why_it_fits` is generated by pure code.
+- Items unverified for > 90 days or past expiration dates are strictly excluded from recommendation feeds.
+- Action endpoints require strict token auth; cross-user or unauthorized access returns 401/404.
+
+---
+
 ## Session: 2026-10-23 (Antigravity) – Versioned Roadmaps & Scheduling Engine (Step 1a)
 
 ### Done

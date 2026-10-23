@@ -6,6 +6,7 @@ from app.api.v1.careers import router as careers_router
 from app.api.v1.compare import router as compare_router
 from app.api.v1.health import router as health_router
 from app.api.v1.profile import router as profile_router
+from app.api.v1.recommendations import router as recommendations_router
 from app.api.v1.shortlist import router as shortlist_router
 from app.api.v1.skills import router as skills_router
 
@@ -19,5 +20,6 @@ api_v1_router.include_router(shortlist_router)
 api_v1_router.include_router(compare_router)
 api_v1_router.include_router(adaptive_tests_router)
 api_v1_router.include_router(skills_router)
+api_v1_router.include_router(recommendations_router)
 
 
