@@ -4,6 +4,60 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-23 (Antigravity) – Portfolio Read-Only Aggregation (Step 1b)
+
+### Done
+- **Portfolio Aggregation Schema (`app/schemas/portfolio.py`)**:
+  - `PortfolioProfile`: `user_id`, `name`, `email`, `education_level`, `target_career`, `subjects_of_interest`.
+  - `PortfolioSkillItem`: `skill_id`, `slug`, `name`, `current_level`, `confidence`, `evidence_count`, `updated_at`.
+  - `PortfolioCompletedRecommendation`: `item_id`, `item_type`, `title`, `provider`, `source_url`, `completed_at`.
+  - `PortfolioCompletedMilestone`: `item_id`, `roadmap_id`, `type`, `title`, `topic`, `difficulty`, `source_url`, `completed_at`.
+  - `PortfolioDiagnosticTest`: `attempt_id`, `type`, `topic`, `demonstrated_level`, `confidence`, `score_percentage`, `completed_at`.
+  - `PortfolioSummary`: `total_skills_tracked`, `total_recommendations_completed`, `total_milestones_completed`, `total_tests_completed`.
+  - `PortfolioResponse`: aggregates all sections with strict `extra="forbid"`.
+- **Repository & Service Layer**:
+  - `PortfolioRepository` (`app/repositories/portfolio_repository.py`):
+    - Multi-domain on-demand read-only aggregation across `student_profiles`, `user_skills` (with evidence count aggregation), `recommendation_actions` (with grouped batch queries across `courses`, `certificates`, `internships`, `template_items`), `roadmap_items` (joined with `roadmaps`), and `test_attempts`.
+    - Guarantees flat query count with zero N+1 queries.
+  - `PortfolioService` (`app/services/portfolio_service.py`):
+    - Coordinates portfolio aggregation and deterministically calculates summary counters.
+- **API Endpoint (`app/api/v1/portfolio.py`)**:
+  - `GET /v1/portfolio`:
+    - Strict Bearer JWT authentication (`get_current_user`).
+    - Returns `200 OK` with `PortfolioResponse`.
+    - Handles fresh/empty users gracefully (all counts 0, empty lists).
+    - Registered in `app/api/v1/router.py`.
+- **Testing & Quality Assurance**:
+  - 5 comprehensive tests in `tests/test_portfolio.py`:
+    - Unauthenticated access returns 401.
+    - Non-GET methods disallowed (405).
+    - Fresh/new user empty aggregation.
+    - Full multi-domain aggregation (profile, skills with evidence count, completed recommendations, completed roadmap items, diagnostic tests, summary counters).
+    - Strict cross-user ownership isolation (User B never sees User A's completed items).
+  - Full project test suite execution: **123 passed, 1 skipped** (live Gemini smoke test).
+  - Code hygiene: `ruff check app tests scripts` passes cleanly with 0 errors.
+- **Documentation**:
+  - Added ADR-017 in `docs/DECISIONS.md`.
+
+### Pending Hooks & Features
+- **Later steps for Portfolio**:
+  - Public shareable vanity portfolio page.
+  - PDF resume exporter.
+  - AI-written portfolio summary / elevator pitch.
+- **Stage 2 for Recommendations**:
+  - AI enrichment of `why_it_fits` commentary in background ARQ worker (never in GET).
+- **Kept Pending from Previous Steps**:
+  - Roadmap Step 1b endpoints (`POST /v1/roadmaps`, `GET /v1/roadmaps/{id}`, `PATCH /v1/roadmaps/items/{id}`, `POST /v1/roadmaps/{id}/replan`).
+  - Adaptive test Stage 2 (`GET /v1/tests/history`, language advisor).
+  - Skill tracker Step 2 (background ARQ worker for AI skill report narrative).
+
+### Do not touch
+- Portfolio is strictly read-only; mutations only occur through primary source domain actions.
+- Never call AI inside `GET /v1/portfolio`.
+- Ownership is strictly enforced via token authentication.
+
+---
+
 ## Session: 2026-10-23 (Antigravity) – Recommendations Engine & Actions (Step 1a)
 
 ### Done

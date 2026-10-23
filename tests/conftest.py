@@ -48,6 +48,12 @@ from app.models.roadmap import (
 from app.models.recommendation import RecommendationAction
 from app.models.user import User
 from app.schemas.assessment import AnswerItem
+from app.schemas.portfolio import (
+    PortfolioCompletedMilestone,
+    PortfolioCompletedRecommendation,
+    PortfolioDiagnosticTest,
+    PortfolioSkillItem,
+)
 
 
 class InMemoryUserRepo:
@@ -863,6 +869,131 @@ class InMemoryRecommendationRepo:
         return candidates
 
 
+class InMemoryPortfolioRepo:
+    def __init__(self, storage: Dict[str, Any]) -> None:
+        self.storage = storage
+
+    async def get_user_profile(self, user_id: UUID) -> Optional[StudentProfile]:
+        for p in self.storage.get("student_profiles", {}).values():
+            if p.user_id == user_id:
+                return p
+        return None
+
+    async def get_user_skills(self, user_id: UUID) -> List[PortfolioSkillItem]:
+        res = []
+        user_skills = [us for us in self.storage.get("user_skills", {}).values() if us.user_id == user_id]
+        evidence = [e for e in self.storage.get("skill_evidence", {}).values() if e.user_id == user_id]
+        counts: Dict[UUID, int] = {}
+        for e in evidence:
+            counts[e.skill_id] = counts.get(e.skill_id, 0) + 1
+
+        for us in user_skills:
+            sk = self.storage.get("skills", {}).get(us.skill_id)
+            if sk:
+                res.append(
+                    PortfolioSkillItem(
+                        skill_id=us.skill_id,
+                        slug=sk.slug,
+                        name=sk.name,
+                        current_level=us.current_level,
+                        confidence=us.confidence,
+                        evidence_count=counts.get(us.skill_id, 0),
+                        updated_at=us.updated_at,
+                    )
+                )
+        res.sort(key=lambda x: x.updated_at, reverse=True)
+        return res
+
+    async def get_completed_recommendations(self, user_id: UUID) -> List[PortfolioCompletedRecommendation]:
+        res = []
+        actions = [
+            a for a in self.storage.get("recommendation_actions", {}).values()
+            if a.user_id == user_id and a.state == "done"
+        ]
+        actions.sort(key=lambda x: x.updated_at, reverse=True)
+        for a in actions:
+            title = f"Completed {a.item_type.capitalize()}"
+            provider = None
+            source_url = None
+            if a.item_type == "course":
+                c = self.storage.get("courses", {}).get(a.item_id)
+                if c:
+                    title = c.title
+                    provider = c.degree_level
+                    source_url = c.source_url
+            elif a.item_type == "certificate":
+                cert = self.storage.get("certificates", {}).get(a.item_id)
+                if cert:
+                    title = cert.name
+                    provider = cert.issuing_organization
+                    source_url = cert.url or cert.source_url
+            elif a.item_type == "internship":
+                intern = self.storage.get("internships", {}).get(a.item_id)
+                if intern:
+                    title = intern.title
+                    provider = intern.domain
+                    source_url = intern.source_url
+            elif a.item_type == "resource":
+                r = self.storage.get("template_items", {}).get(a.item_id)
+                if r:
+                    title = r.title
+                    provider = r.topic
+                    source_url = r.source_url
+
+            res.append(
+                PortfolioCompletedRecommendation(
+                    item_id=a.item_id,
+                    item_type=a.item_type,
+                    title=title,
+                    provider=provider,
+                    source_url=source_url,
+                    completed_at=a.updated_at,
+                )
+            )
+        return res
+
+    async def get_completed_roadmap_milestones(self, user_id: UUID) -> List[PortfolioCompletedMilestone]:
+        res = []
+        user_roadmap_ids = {
+            r.id for r in self.storage.get("roadmaps", {}).values()
+            if r.user_id == user_id
+        }
+        for it in self.storage.get("roadmap_items", {}).values():
+            if it.roadmap_id in user_roadmap_ids and it.status == "done":
+                res.append(
+                    PortfolioCompletedMilestone(
+                        item_id=it.id,
+                        roadmap_id=it.roadmap_id,
+                        type=it.type,
+                        title=it.title,
+                        topic=it.topic,
+                        difficulty=it.difficulty,
+                        source_url=it.source_url,
+                        completed_at=it.completed_at or it.updated_at,
+                    )
+                )
+        res.sort(key=lambda x: (x.completed_at or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+        return res
+
+    async def get_completed_diagnostic_tests(self, user_id: UUID) -> List[PortfolioDiagnosticTest]:
+        res = []
+        for att in self.storage.get("test_attempts", {}).values():
+            if att.user_id == user_id and att.status == "finished":
+                res.append(
+                    PortfolioDiagnosticTest(
+                        attempt_id=att.id,
+                        type=att.type,
+                        topic=att.topic,
+                        demonstrated_level=att.demonstrated_level,
+                        confidence=att.confidence,
+                        score_percentage=att.score_percentage,
+                        completed_at=att.started_at,
+                    )
+                )
+        res.sort(key=lambda x: (x.completed_at or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+        return res
+
+
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.storage = storage
@@ -886,6 +1017,7 @@ class MockSession:
             storage["user_skills"],
         )
         self.recommendation_repo = InMemoryRecommendationRepo(storage)
+        self.portfolio_repo = InMemoryPortfolioRepo(storage)
 
 
     def add(self, instance):
@@ -1292,6 +1424,7 @@ async def async_client(test_storage, monkeypatch):
     from app.services.adaptive_test_service import AdaptiveTestService
     from app.services.skill_service import SkillService
     from app.services.recommendation_service import RecommendationService
+    from app.services.portfolio_service import PortfolioService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -1353,6 +1486,12 @@ async def async_client(test_storage, monkeypatch):
         self.skill_repo = mock_session.skill_repo
 
     monkeypatch.setattr(RecommendationService, "__init__", mock_recommendation_service_init)
+
+    def mock_portfolio_service_init(self, session):
+        self.session = mock_session
+        self.repo = mock_session.portfolio_repo
+
+    monkeypatch.setattr(PortfolioService, "__init__", mock_portfolio_service_init)
 
     async def override_get_db():
         yield mock_session
