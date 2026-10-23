@@ -11,7 +11,7 @@ This document records all approved Python and runtime dependencies. No new depen
 | :--- | :--- | :--- |
 | `fastapi` | `==0.115.0` | Core high-performance async REST API framework. |
 | `uvicorn[standard]` | `==0.32.0` | Production-grade ASGI server with uvloop/httptools support. |
-| `pydantic` | `==2.9.2` | Data validation and JSON schema enforcement for APIs and LLM payloads. |
+| `pydantic` | `==2.14.1` | Data validation and JSON schema enforcement for APIs and LLM payloads. |
 | `pydantic-settings` | `==2.6.0` | Environment variable management and validation using Pydantic V2 models. |
 
 ## 2. Database & Migrations (asyncpg only)
@@ -27,18 +27,22 @@ This document records all approved Python and runtime dependencies. No new depen
 | `redis` | `==5.2.0` | High-performance Redis client for caching, tokens, and rate-limiting. |
 | `arq` | `==0.26.1` | Native asyncio job queue built on Redis; robust, fast, and Windows-compatible. |
 
-## 4. Testing & Code Quality
+## 4. Artificial Intelligence & LLM Gateway
+| Dependency | Version Pin | Architectural Rationale |
+| :--- | :--- | :--- |
+| `google-genai` | `==2.29.0` | Official Google GenAI SDK for Gemini models with structured JSON schema support (released 2026-10-07; >14 days stable). |
+
+## 5. Testing & Code Quality
 | Dependency | Version Pin | Architectural Rationale |
 | :--- | :--- | :--- |
 | `pytest` | `==8.3.3` | Testing framework for unit and integration test suites. |
 | `pytest-asyncio` | `==0.24.0` | Asyncio test runner support for async FastAPI endpoints and repositories. |
-| `httpx` | `==0.27.2` | Async HTTP client for end-to-end API route testing via FastAPI TestClient. |
+| `httpx` | `==0.28.1` | Async HTTP client for end-to-end API route testing via FastAPI TestClient and provider calls. |
 | `ruff` | `==0.7.1` | High-speed Python linter for automated CI pipelines. |
 
-## 5. Upcoming Phase Dependencies (Locked for Phase 2 & LLM Gateway)
+## 6. Upcoming Phase Dependencies (Locked for Phase 2 Auth)
 | Dependency | Version Pin | Architectural Rationale |
 | :--- | :--- | :--- |
 | `python-jose[cryptography]` | `==3.3.0` | Cryptographic JWT creation, signing, claims validation, and parsing. |
 | `passlib[bcrypt]` | `==1.7.4` | Secure password hashing algorithm (bcrypt) and verification. |
 | `python-multipart` | `==0.0.12` | Form data parsing for login endpoints. |
-| `google-genai` | `==0.1.1` | Official Google GenAI SDK for Gemini models with structured JSON support. |

@@ -4,40 +4,37 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
-## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – Phase 1 Foundation
+## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – LLM Gateway Step 1
 
 ### Done
-- Rebased initial scaffolding onto `origin/main` (incorporating remote `README.md`) and switched to branch `backend`.
-- Configured project dependencies in `requirements.txt` with exact version pinning, logged in `docs/DEPENDENCIES.md`.
-- Implemented environment-driven configuration via `pydantic-settings` (`app/core/config.py`).
-- Implemented structured logging with request-ID tracking (`app/core/logging.py`, `app/core/middleware.py`).
-- Implemented global error handling with single standard JSON error envelope (`app/core/exceptions.py`).
-- Implemented async PostgreSQL engine and session factory using `asyncpg` exclusively (`app/core/database.py`).
-- Implemented async Redis connection pool and healthcheck (`app/core/redis.py`).
-- Implemented `/health` (liveness) and `/ready` (readiness checking PostgreSQL and Redis) under `/v1` router (`app/api/v1/health.py`, `app/main.py`).
-- Implemented ARQ background worker bootstrap with Redis settings and sample task (`app/workers/worker.py`).
-- Configured Alembic with native async runner (`run_async_migrations`) and `asyncpg` (`alembic.ini`, `alembic/env.py`).
-- Authored production `Dockerfile` and updated `docker-compose.yml` (Postgres, Redis, API, ARQ worker).
-- Added GitHub Actions workflow (`.github/workflows/ci.yml`) running Ruff linter and Pytest with real Postgres & Redis service containers.
-- Implemented automated tests for health, ready, and standard error handling (`tests/test_health.py`, `tests/test_errors.py`). Real pytest execution: 7 passed, 0 failures.
-- Documented single-driver decision in `docs/DECISIONS.md` (ADR-006).
+- Implemented `BaseLLMProvider`, `GeminiProvider` (using official `google-genai==2.29.0`), and `MockLLMProvider` in `app/llm/provider.py`.
+- Verified and pinned `google-genai==2.29.0` (released 2026-10-07, >14 days stable on PyPI) with `pydantic==2.14.1` and `httpx==0.28.1`. Logged in `docs/DEPENDENCIES.md`.
+- Implemented `PromptManager` in `app/llm/prompt_manager.py` with versioned file template loading from `app/llm/prompts/` (e.g. `career_explainer_v1.txt`).
+- Implemented strict prompt injection defense (`PromptInjectionDefense`), neutralizing delimiter breakouts and wrapping all untrusted user text inside `<user_input name="...">...</user_input>`.
+- Implemented `LLMGateway` in `app/llm/gateway.py` with:
+  - 15-second per-call timeout.
+  - 20-second overall time budget for entire operation.
+  - Pydantic schema validation.
+  - Exactly one retry on validation failure only (no retries on timeout or network exceptions).
+  - Optional `post_validator` callback rejecting outputs with hallucinated/unverified database IDs.
+  - Guaranteed deterministic fallback via `fallback_factory`.
+- Implemented zero-PII telemetry in `app/llm/telemetry.py` recording `prompt_name`, `version`, `model`, `status`, `fallback_used`, `latency_ms`, and `attempts` with strict exclusion of prompt text and user inputs.
+- Authored comprehensive test suite in `tests/test_llm_gateway.py` (invalid JSON retry/fallback, timeout fallback, unknown-ID rejection, prompt injection defense, zero user text in telemetry, and optional live Gemini smoke test). Real test run: 13 passed, 1 skipped (live key).
+- Documented gateway fallback resilience in `docs/DECISIONS.md` (ADR-007).
 
 ### In progress
-- Phase 1 completed. Waiting for user review before proceeding to Phase 2.
+- LLM Gateway Step 1 complete. Awaiting review before Step 2.
 
 ### Broken or risky
-- Local Windows Docker daemon was not running during the session (client pipe `//./pipe/dockerDesktopLinuxEngine` inactive), preventing local `docker compose up` from starting containers locally. Local pytest and uvicorn runtime tests verified against local Python 3.12 environment. CI pipeline is configured with real Postgres and Redis service containers.
+- Live Gemini API calls require setting `GEMINI_API_KEY` in environment; CI and local tests safely mock provider execution.
 
-### Next (Phase 2 upon approval)
-- Implement `User` SQLAlchemy model with `role` (`student`/`admin`) and `education_level` (`class_11_12`/`college`).
-- Generate initial Alembic migration for `users` and refresh token store.
-- Implement `user_repository.py` and `auth_service.py` with:
-  - Refresh token rotation (storing hashed tokens, revoking on logout & password reset).
-  - Single-use 30-minute password reset tokens with timing-attack resistant uniform responses.
-  - Redis-based login rate limiting.
-  - Ownership guard (`get_current_user` dependency ensuring students only access their own records).
-- Add tests for signup, login, refresh rotation, rate limiting, and ownership protection.
+### Next (LLM Gateway Step 2 upon approval)
+- Implement Redis-based per-user sliding window and global rate limiting.
+- Implement token usage and estimated cost tracking in telemetry.
+- Implement streaming for chat endpoints (`StreamingResponse` / SSE).
+- Implement fail-closed fallback execution when Redis is unreachable.
 
 ### Do not touch
-- `docs/CONSTRAINTS.md`: Core product and security rules are locked.
-- Single standard error response envelope contract (`{"error": {"code": "...", "message": "...", "details": ..., "request_id": "..."}}`).
+- `docs/CONSTRAINTS.md`: All security and product constraints are locked.
+- Prompt injection delimitation boundary (`<user_input>...</user_input>`).
+- Zero PII / raw text logging policy in `app/llm/telemetry.py`.

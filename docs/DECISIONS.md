@@ -105,3 +105,21 @@ This document tracks all foundational technology and architecture choices, evalu
   - Requires `alembic/env.py` to use `asyncio.run(run_async_migrations())` for online migrations.
 - **Revisit if**:
   - Explicit Alembic plugins or offline schema generation tools require synchronous DBAPI connections that cannot execute within `run_sync`.
+
+---
+
+## ADR-007: LLM Gateway Resilience – Deterministic Fallback instead of Fail-Open
+
+- **Options Considered**:
+  - Fail-Open: Return unvalidated raw LLM strings or partially formed payloads on provider error or timeout.
+  - Hard Error: Raise HTTP 500 / unhandled exceptions on AI failures.
+  - Deterministic Fallback: Every gateway call requires a `fallback_factory` supplying a strongly typed, code-computed fallback instance conforming to the target Pydantic schema.
+- **Choice**: **Deterministic Fallback**
+- **Reason**:
+  - User journeys in career counseling cannot break due to transient AI latency, upstream outages, or malformed JSON.
+  - Failing open violates our core security constraints by allowing hallucinated IDs, unvalidated outputs, or prompt leakage into consumer applications.
+  - Deterministic fallbacks guarantee that the frontend and downstream consumers always receive fully validated, compliant data structures even under complete upstream LLM disruption.
+- **Trade-off**:
+  - Callers must author domain-appropriate fallback factories.
+- **Revisit if**:
+  - Never. Deterministic fallback guarantees high availability and zero user-facing crash states.
