@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     GEMINI_TIMEOUT_SECONDS: int = 15
     GEMINI_MAX_RETRIES: int = 1
 
+    # Assessment & Catalog
+    ALLOW_DRAFT_CAREERS: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -50,6 +53,10 @@ class Settings(BaseSettings):
             if len(key_bytes) < 32 or "change_this" in self.JWT_SECRET_KEY.lower():
                 raise ValueError(
                     "Production requires a secure, non-default JWT_SECRET_KEY of at least 32 bytes (256 bits)."
+                )
+            if self.ALLOW_DRAFT_CAREERS:
+                raise ValueError(
+                    "ALLOW_DRAFT_CAREERS must never be enabled in production environments."
                 )
         return self
 

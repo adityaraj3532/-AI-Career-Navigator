@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -61,3 +61,56 @@ class AttemptResponse(BaseModel):
     total_questions: int
     answered_count: int
     answers: List[SavedAnswerDetail]
+
+
+class SubmitAssessmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    attempt_id: Optional[UUID] = None
+
+
+class CareerSuggestionItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    career_id: UUID
+    code: str
+    title: str
+    cluster: str
+    overview: str
+    source_url: str
+    similarity_score: float
+    reason: str
+
+
+class AssessmentResultResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    attempt_id: UUID
+    version: int
+    dimension_scores: Dict[str, float]
+    holland_code: str
+    holland_code_label: str
+    traits: List[str]
+    skills: List[str]
+    recommended_streams: Optional[List[str]] = None
+    career_suggestions: List[CareerSuggestionItem]
+    ai_explanation: str
+    disclaimer_note: str
+    created_at: datetime
+
+
+class MissingQuestionsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message: str
+    missing_question_ids: List[UUID]
+    missing_count: int
+    total_required: int
+
+
+class AssessmentExplanationAISchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary_explanation: str
+    career_reasons: Dict[str, str]

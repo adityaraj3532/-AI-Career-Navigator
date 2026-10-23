@@ -7,14 +7,18 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.core.database import get_db
+from app.llm.gateway import LLMGateway
+from app.llm.provider import MockLLMProvider
 from app.main import app
 from app.models.assessment import (
     AssessmentAnswer,
     AssessmentAttempt,
     AssessmentQuestion,
+    AssessmentResult,
     AssessmentVersion,
 )
 from app.models.auth import RefreshToken
+from app.models.career import Career
 from app.models.user import User
 from app.schemas.assessment import AnswerItem
 
@@ -102,12 +106,35 @@ class InMemoryTokenRepo:
         return len(expired_ids)
 
 
+class InMemoryCareerRepo:
+    def __init__(self, careers_dict: Dict[UUID, Career]) -> None:
+        self.careers = careers_dict
+
+    async def get_careers(self, allow_drafts: bool = False) -> List[Career]:
+        res = []
+        for c in self.careers.values():
+            if allow_drafts or c.status == "verified":
+                res.append(c)
+        res.sort(key=lambda x: x.title)
+        return res
+
+    async def get_by_id(self, career_id: UUID) -> Optional[Career]:
+        return self.careers.get(career_id)
+
+    async def get_by_code(self, code: str) -> Optional[Career]:
+        for c in self.careers.values():
+            if c.code == code:
+                return c
+        return None
+
+
 class InMemoryAssessmentRepo:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.versions: Dict[UUID, AssessmentVersion] = storage["versions"]
         self.questions: Dict[UUID, AssessmentQuestion] = storage["questions"]
         self.attempts: Dict[UUID, AssessmentAttempt] = storage["attempts"]
         self.answers: Dict[UUID, AssessmentAnswer] = storage["answers"]
+        self.results: Dict[UUID, AssessmentResult] = storage.setdefault("results", {})
 
     async def get_active_version(self) -> Optional[AssessmentVersion]:
         for v in self.versions.values():
@@ -164,7 +191,6 @@ class InMemoryAssessmentRepo:
     async def upsert_answers(self, attempt_id: UUID, answers: List[AnswerItem]) -> None:
         now = datetime.now(timezone.utc)
         for item in answers:
-            # Check existing answer
             found = False
             for a in self.answers.values():
                 if a.attempt_id == attempt_id and a.question_id == item.question_id:
@@ -183,11 +209,48 @@ class InMemoryAssessmentRepo:
                 )
                 self.answers[ans_id] = new_a
 
+    async def get_result_by_attempt_id(self, attempt_id: UUID) -> Optional[AssessmentResult]:
+        for r in self.results.values():
+            if r.attempt_id == attempt_id:
+                return r
+        return None
+
+    async def get_result_by_id(self, result_id: UUID, user_id: UUID) -> Optional[AssessmentResult]:
+        r = self.results.get(result_id)
+        if r and r.user_id == user_id:
+            return r
+        return None
+
+    async def get_latest_result(self, user_id: UUID) -> Optional[AssessmentResult]:
+        user_results = [r for r in self.results.values() if r.user_id == user_id]
+        if not user_results:
+            return None
+        user_results.sort(key=lambda r: r.version, reverse=True)
+        return user_results[0]
+
+    async def get_results_for_user(self, user_id: UUID) -> List[AssessmentResult]:
+        user_results = [r for r in self.results.values() if r.user_id == user_id]
+        user_results.sort(key=lambda r: r.version, reverse=True)
+        return user_results
+
+    async def get_next_result_version(self, user_id: UUID) -> int:
+        versions = [r.version for r in self.results.values() if r.user_id == user_id]
+        return max(versions, default=0) + 1
+
+    async def save_result(self, result: AssessmentResult) -> AssessmentResult:
+        if not result.id:
+            result.id = uuid4()
+        if not getattr(result, "created_at", None):
+            result.created_at = datetime.now(timezone.utc)
+        self.results[result.id] = result
+        return result
+
 
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.user_repo = InMemoryUserRepo(storage["users"])
         self.token_repo = InMemoryTokenRepo(storage["tokens"])
+        self.career_repo = InMemoryCareerRepo(storage["careers"])
         self.assessment_repo = InMemoryAssessmentRepo(storage)
 
     async def commit(self):
@@ -215,6 +278,8 @@ async def test_storage():
         "questions": {},
         "attempts": {},
         "answers": {},
+        "careers": {},
+        "results": {},
     }
 
     # Pre-seed assessment questions
@@ -246,6 +311,26 @@ async def test_storage():
             )
             storage["questions"][qid] = q_rec
 
+    # Pre-seed careers
+    careers_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "careers.json"
+    if careers_file.is_file():
+        with open(careers_file, "r", encoding="utf-8") as f:
+            cdata = json.load(f)
+        for c in cdata:
+            cid = uuid4()
+            career = Career(
+                id=cid,
+                code=c["code"],
+                title=c["title"],
+                cluster=c["cluster"],
+                overview=c["overview"],
+                status=c.get("status", "draft"),
+                source_url=c["source_url"],
+                dimension_weights=c["dimension_weights"],
+                created_at=datetime.now(timezone.utc),
+            )
+            storage["careers"][cid] = career
+
     return storage
 
 
@@ -264,9 +349,11 @@ async def async_client(test_storage, monkeypatch):
 
     monkeypatch.setattr(AuthService, "__init__", mock_auth_init)
 
-    def mock_assessment_init(self, session):
+    def mock_assessment_init(self, session, gateway=None):
         self.session = mock_session
         self.repo = mock_session.assessment_repo
+        self.career_repo = mock_session.career_repo
+        self.gateway = gateway or LLMGateway(provider=MockLLMProvider())
 
     monkeypatch.setattr(AssessmentService, "__init__", mock_assessment_init)
 

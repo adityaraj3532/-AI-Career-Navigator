@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -9,6 +9,7 @@ from app.models.assessment import (
     AssessmentAnswer,
     AssessmentAttempt,
     AssessmentQuestion,
+    AssessmentResult,
     AssessmentVersion,
 )
 from app.schemas.assessment import AnswerItem
@@ -84,7 +85,6 @@ class AssessmentRepository:
 
     async def upsert_answers(self, attempt_id: UUID, answers: List[AnswerItem]) -> None:
         """Upserts draft responses for an active attempt."""
-        # Query existing answers for this attempt
         stmt = select(AssessmentAnswer).where(AssessmentAnswer.attempt_id == attempt_id)
         res = await self.session.execute(stmt)
         existing_by_qid: Dict[UUID, AssessmentAnswer] = {
@@ -107,3 +107,49 @@ class AssessmentRepository:
                 self.session.add(new_ans)
 
         await self.session.flush()
+
+    async def get_result_by_attempt_id(self, attempt_id: UUID) -> Optional[AssessmentResult]:
+        stmt = select(AssessmentResult).where(AssessmentResult.attempt_id == attempt_id)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_result_by_id(self, result_id: UUID, user_id: UUID) -> Optional[AssessmentResult]:
+        """Strict multi-tenant query: filters by result_id AND user_id."""
+        stmt = (
+            select(AssessmentResult)
+            .where(AssessmentResult.id == result_id)
+            .where(AssessmentResult.user_id == user_id)
+        )
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_latest_result(self, user_id: UUID) -> Optional[AssessmentResult]:
+        stmt = (
+            select(AssessmentResult)
+            .where(AssessmentResult.user_id == user_id)
+            .order_by(AssessmentResult.version.desc())
+            .limit(1)
+        )
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_results_for_user(self, user_id: UUID) -> List[AssessmentResult]:
+        stmt = (
+            select(AssessmentResult)
+            .where(AssessmentResult.user_id == user_id)
+            .order_by(AssessmentResult.version.desc())
+        )
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_next_result_version(self, user_id: UUID) -> int:
+        stmt = select(func.max(AssessmentResult.version)).where(AssessmentResult.user_id == user_id)
+        res = await self.session.execute(stmt)
+        max_v = res.scalar()
+        return (max_v or 0) + 1
+
+    async def save_result(self, result: AssessmentResult) -> AssessmentResult:
+        self.session.add(result)
+        await self.session.flush()
+        await self.session.refresh(result)
+        return result

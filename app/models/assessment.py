@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -130,6 +130,11 @@ class AssessmentAttempt(Base):
         back_populates="attempt",
         cascade="all, delete-orphan",
     )
+    result: Mapped[Optional["AssessmentResult"]] = relationship(
+        "AssessmentResult",
+        back_populates="attempt",
+        uselist=False,
+    )
 
 
 class AssessmentAnswer(Base):
@@ -170,4 +175,91 @@ class AssessmentAnswer(Base):
     question: Mapped["AssessmentQuestion"] = relationship(
         "AssessmentQuestion",
         back_populates="answers",
+    )
+
+
+class AssessmentResult(Base):
+    __tablename__ = "assessment_results"
+    __table_args__ = (
+        UniqueConstraint("user_id", "version", name="uq_user_assessment_result_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    attempt_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("assessment_attempts.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+    assessment_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("assessment_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+    )
+    # JSONB normalized dimension scores: {"R": 40.0, "I": 95.0, "A": 85.0, "S": 60.0, "E": 50.0, "C": 70.0}
+    dimension_scores: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    holland_code: Mapped[str] = mapped_column(
+        String(8),
+        nullable=False,
+        index=True,
+    )
+    holland_code_label: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+    )
+    traits: Mapped[List[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    skills: Mapped[List[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    recommended_streams: Mapped[Optional[List[str]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    # List of code-ranked careers with AI-synthesized personal reasons:
+    # [{"career_id": "...", "career_title": "...", "similarity_score": 0.95, "reason": "..."}]
+    career_suggestions: Mapped[List[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    ai_explanation: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    disclaimer_note: Mapped[str] = mapped_column(
+        String(256),
+        nullable=False,
+        default="These results provide career navigation guidance and vocational exploration insights; they are not a psychological evaluation or clinical diagnosis.",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    attempt: Mapped["AssessmentAttempt"] = relationship(
+        "AssessmentAttempt",
+        back_populates="result",
     )

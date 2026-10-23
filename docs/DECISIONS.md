@@ -158,3 +158,23 @@ This document tracks all foundational technology and architecture choices, evalu
   - Requires maintaining explicit Holland affinity weights per career in database seed tables.
 - **Revisit if**:
   - Never. Career matchmaking integrity requires auditability and strict relational foreign key verification.
+
+---
+
+## ADR-010: Assessment Stage 2 – Pure Vector Scoring, Strict AI Boundary & Immutable Versioned Results
+
+- **Options Considered**:
+  - Allow AI to select, rank, and explain careers simultaneously in a single prompt.
+  - Compute scores and career similarity mathematically in code, passing only numbers and catalog summaries to AI, and saving immutable versioned results.
+- **Choice**: **Deterministic Pure-Function Vector Scoring & Career Ranking with AI Isolation**
+- **Reason**:
+  - **Mathematical Reproducibility**: 30-item Likert 1-5 inventory with reverse-scoring is scored deterministically in pure functions with 0-100 normalization and a canonical tie-break (`R -> I -> A -> S -> E -> C`), generating reproducible Holland codes (e.g. `IAS`).
+  - **Vector Similarity**: Careers are ranked via Euclidean vector similarity between the student's normalized 6D vector and the career's `dimension_weights` in $[0, 100]^6$. Tie-breaks sort by similarity descending, then career title ascending.
+  - **Academic Stream Sequencing**: For high school students (`education_level == "class_11_12"`), recommended curriculum streams (Science PCM/PCB, Commerce with Math, Humanities) are mapped and returned before careers.
+  - **Strict AI Privacy & Delimitation**: AI receives **only numbers and career summaries**—never user name, email, or unvetted free text. Post-validation asserts every referenced career ID belongs to the code-selected list; any discrepancy triggers the deterministic fallback.
+  - **Idempotency & Concurrency Safety**: Submissions are idempotent. Re-submitting the same attempt returns the existing immutable result record. Concurrent submissions are handled safely with database unique constraints (`assessment_results.attempt_id` and `uq_user_assessment_result_version`).
+  - **Quality Assurance & Verification**: Careers are seeded as `draft`. Only `verified` careers are exposed in production results; draft careers are allowed only in `development` when `ALLOW_DRAFT_CAREERS=true`. A dedicated CLI (`scripts/verify_career.py`) records the reviewer and timestamp.
+- **Trade-off**:
+  - Requires maintaining curated multidimensional weights for all verified careers in the database.
+- **Revisit if**:
+  - Never. Vocational counseling integrity and student privacy require deterministic matching and zero AI hallucination of career pathways.

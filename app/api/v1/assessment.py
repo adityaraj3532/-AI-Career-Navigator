@@ -1,15 +1,18 @@
-from typing import Annotated
+from typing import Annotated, List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.core.exceptions import AppException
 from app.models.user import User
 from app.schemas.assessment import (
+    AssessmentResultResponse,
     AttemptResponse,
     QuestionsListResponse,
     SaveAnswersRequest,
+    SubmitAssessmentRequest,
 )
 from app.services.assessment_service import AssessmentService
 
@@ -83,10 +86,64 @@ async def get_attempt_by_id(
     service = AssessmentService(session)
     attempt = await service.repo.get_attempt_by_id(attempt_id, current_user.id)
     if not attempt:
-        from app.core.exceptions import AppException
         raise AppException(
             status_code=status.HTTP_404_NOT_FOUND,
             code="ATTEMPT_NOT_FOUND",
             message="Assessment attempt not found or unauthorized.",
         )
     return service._format_attempt_response(attempt)
+
+
+@router.post(
+    "/submit",
+    response_model=AssessmentResultResponse,
+    summary="Submit completed assessment attempt, run scoring and generate recommendations",
+)
+async def submit_assessment(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+    req: Optional[SubmitAssessmentRequest] = None,
+) -> AssessmentResultResponse:
+    service = AssessmentService(session)
+    attempt_id = req.attempt_id if req else None
+    return await service.submit_assessment(user=current_user, attempt_id=attempt_id)
+
+
+@router.get(
+    "/results/latest",
+    response_model=AssessmentResultResponse,
+    summary="Retrieve the user's latest assessment result",
+)
+async def get_latest_result(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> AssessmentResultResponse:
+    service = AssessmentService(session)
+    return await service.get_latest_result(current_user.id)
+
+
+@router.get(
+    "/results",
+    response_model=List[AssessmentResultResponse],
+    summary="Retrieve all historical assessment results for current user",
+)
+async def get_all_results(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> List[AssessmentResultResponse]:
+    service = AssessmentService(session)
+    return await service.get_all_results(current_user.id)
+
+
+@router.get(
+    "/results/{result_id}",
+    response_model=AssessmentResultResponse,
+    summary="Retrieve a specific assessment result by ID (enforcing strict ownership)",
+)
+async def get_result_by_id(
+    result_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> AssessmentResultResponse:
+    service = AssessmentService(session)
+    return await service.get_result_by_id(result_id, current_user.id)

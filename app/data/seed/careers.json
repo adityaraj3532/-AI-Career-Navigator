@@ -1,0 +1,130 @@
+[
+  {
+    "code": "DATA_SCIENTIST",
+    "title": "Data Scientist & Machine Learning Engineer",
+    "cluster": "Information Technology",
+    "overview": "Applies statistical modeling, machine learning algorithms, and deep data analysis to discover patterns and build predictive intelligent systems.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/15-2051.00",
+    "dimension_weights": {
+      "R": 25,
+      "I": 95,
+      "A": 35,
+      "S": 20,
+      "E": 40,
+      "C": 85
+    }
+  },
+  {
+    "code": "SOFTWARE_ARCHITECT",
+    "title": "Software Systems Architect",
+    "cluster": "Information Technology",
+    "overview": "Designs resilient distributed system architectures, high-level code frameworks, and scalable cloud solutions for complex enterprise platforms.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/15-1252.00",
+    "dimension_weights": {
+      "R": 40,
+      "I": 90,
+      "A": 60,
+      "S": 30,
+      "E": 55,
+      "C": 75
+    }
+  },
+  {
+    "code": "BIOMEDICAL_RESEARCHER",
+    "title": "Biomedical Research Scientist",
+    "cluster": "Healthcare & Life Sciences",
+    "overview": "Investigates molecular biological systems, develops therapeutic hypotheses, and designs clinical laboratory trials to treat human disease.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/19-1042.00",
+    "dimension_weights": {
+      "R": 35,
+      "I": 95,
+      "A": 25,
+      "S": 60,
+      "E": 20,
+      "C": 70
+    }
+  },
+  {
+    "code": "UX_UI_DESIGNER",
+    "title": "Digital Product & UX/UI Designer",
+    "cluster": "Design & Creative Tech",
+    "overview": "Synthesizes human-centered design principles, visual aesthetics, user research, and interactive wireframes to build engaging digital products.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/15-1255.00",
+    "dimension_weights": {
+      "R": 20,
+      "I": 65,
+      "A": 95,
+      "S": 70,
+      "E": 50,
+      "C": 45
+    }
+  },
+  {
+    "code": "CLINICAL_PSYCHOLOGIST",
+    "title": "Counseling Psychologist & Behavioral Specialist",
+    "cluster": "Healthcare & Social Services",
+    "overview": "Diagnoses behavioral patterns, provides empathetic cognitive counseling, and guides individuals through emotional and developmental challenges.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/19-3033.00",
+    "dimension_weights": {
+      "R": 10,
+      "I": 80,
+      "A": 45,
+      "S": 95,
+      "E": 35,
+      "C": 40
+    }
+  },
+  {
+    "code": "FINANCIAL_QUANT_ANALYST",
+    "title": "Quantitative Financial Analyst",
+    "cluster": "Finance & Banking",
+    "overview": "Develops algorithmic trading strategies, evaluates mathematical risk models, and conducts structured financial derivative valuations.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/13-2051.00",
+    "dimension_weights": {
+      "R": 15,
+      "I": 85,
+      "A": 20,
+      "S": 25,
+      "E": 80,
+      "C": 95
+    }
+  },
+  {
+    "code": "PRODUCT_MANAGER",
+    "title": "Technical Product Manager",
+    "cluster": "Management & Tech",
+    "overview": "Aligns market opportunities, engineering roadmaps, and stakeholder priorities to lead cross-functional product development cycles.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/11-1021.00",
+    "dimension_weights": {
+      "R": 20,
+      "I": 70,
+      "A": 55,
+      "S": 75,
+      "E": 90,
+      "C": 65
+    }
+  },
+  {
+    "code": "ROBOTICS_AUTOMATION_ENGINEER",
+    "title": "Robotics & Mechatronics Automation Engineer",
+    "cluster": "Engineering",
+    "overview": "Integrates mechanical actuators, sensor networks, firmware, and industrial programmable logic to design automated robotic machinery.",
+    "status": "draft",
+    "source_url": "https://www.onetonline.org/link/summary/17-2199.08",
+    "dimension_weights": {
+      "R": 90,
+      "I": 85,
+      "A": 30,
+      "S": 25,
+      "E": 45,
+      "C": 65
+    }
+  }
+]
