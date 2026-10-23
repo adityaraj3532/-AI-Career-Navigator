@@ -2,7 +2,7 @@ import argparse
 import asyncio
 from datetime import datetime, timezone
 from uuid import UUID
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory

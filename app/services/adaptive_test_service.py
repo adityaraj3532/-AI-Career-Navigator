@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Dict, Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -326,6 +326,35 @@ class AdaptiveTestService:
         attempt.finished_at = now
 
         await self.repo.save_attempt(attempt)
+
+        # Compute subtopic scores from answers
+        subtopic_counts: Dict[str, Dict[str, int]] = {}
+        for a in attempt.answers:
+            sub = a.question.subtopic if getattr(a, "question", None) else None
+            if sub:
+                counts = subtopic_counts.setdefault(sub, {"total": 0, "correct": 0})
+                counts["total"] += 1
+                if a.is_correct:
+                    counts["correct"] += 1
+
+        subtopic_scores = {
+            sub: round((counts["correct"] / counts["total"]) * 100)
+            for sub, counts in subtopic_counts.items()
+            if counts["total"] > 0
+        }
+
+        # Atomically ingest test result into skill tracker within the same transaction
+        from app.services.skill_service import SkillService
+        skill_service = SkillService(self.repo.session)
+        await skill_service.ingest_test_result(
+            user_id=user.id,
+            attempt_id=attempt.id,
+            topic=attempt.topic,
+            language=attempt.language,
+            demonstrated_level=level,
+            score_percentage=score_pct,
+            subtopic_scores=subtopic_scores,
+        )
 
         return FinishTestResponse(
             test_id=attempt.id,

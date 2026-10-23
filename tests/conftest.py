@@ -34,6 +34,11 @@ from app.models.career import (
     UserShortlist,
     UserCareerCompatibilitySnapshot,
 )
+from app.models.skill import (
+    Skill,
+    SkillEvidence,
+    UserSkill,
+)
 from app.models.user import User
 from app.schemas.assessment import AnswerItem
 
@@ -406,6 +411,7 @@ class InMemoryCompatibilityRepo:
     def __init__(self, snapshots_dict: Dict[UUID, UserCareerCompatibilitySnapshot], careers_dict: Dict[UUID, Career]) -> None:
         self.snapshots = snapshots_dict
         self.careers = careers_dict
+        self._counter = 0
 
     async def get_latest_snapshot(self, user_id: UUID, career_id: UUID) -> Optional[UserCareerCompatibilitySnapshot]:
         matches = [
@@ -414,7 +420,7 @@ class InMemoryCompatibilityRepo:
         ]
         if not matches:
             return None
-        matches.sort(key=lambda x: x.created_at, reverse=True)
+        matches.sort(key=lambda x: (x.created_at, getattr(x, "_seq", 0)), reverse=True)
         snap = matches[0]
         if snap.career is None:
             snap.career = self.careers.get(career_id)
@@ -425,13 +431,15 @@ class InMemoryCompatibilityRepo:
             s for s in self.snapshots.values()
             if s.user_id == user_id and s.career_id == career_id
         ]
-        matches.sort(key=lambda x: x.created_at, reverse=True)
+        matches.sort(key=lambda x: (x.created_at, getattr(x, "_seq", 0)), reverse=True)
         for s in matches:
             if s.career is None:
                 s.career = self.careers.get(career_id)
         return matches
 
     async def save_snapshot(self, snapshot: UserCareerCompatibilitySnapshot) -> UserCareerCompatibilitySnapshot:
+        self._counter += 1
+        snapshot._seq = self._counter
         if not getattr(snapshot, "id", None):
             snapshot.id = uuid4()
         if not getattr(snapshot, "created_at", None):
@@ -608,6 +616,92 @@ class InMemoryAdaptiveTestRepo:
         return answer
 
 
+class InMemorySkillRepo:
+    def __init__(
+        self,
+        skills: Dict[UUID, Skill],
+        evidence: Dict[UUID, SkillEvidence],
+        user_skills: Dict[UUID, UserSkill],
+    ) -> None:
+        self.skills = skills
+        self.evidence = evidence
+        self.user_skills = user_skills
+
+    async def get_skill_by_id(self, skill_id: UUID) -> Optional[Skill]:
+        return self.skills.get(skill_id)
+
+    async def get_skill_by_slug(self, slug: str) -> Optional[Skill]:
+        clean = slug.strip().lower()
+        for s in self.skills.values():
+            if s.slug.lower() == clean:
+                return s
+        return None
+
+    async def find_skill_by_name_or_alias(self, term: str) -> Optional[Skill]:
+        clean = term.strip().lower()
+        for s in self.skills.values():
+            if s.slug.lower() == clean or s.name.strip().lower() == clean:
+                return s
+            for a in getattr(s, "aliases", []):
+                if str(a).strip().lower() == clean:
+                    return s
+        return None
+
+    async def get_user_skills(self, user_id: UUID) -> List[UserSkill]:
+        res = [us for us in self.user_skills.values() if us.user_id == user_id]
+        res.sort(key=lambda x: x.updated_at, reverse=True)
+        for us in res:
+            us.skill = self.skills.get(us.skill_id)
+        return res
+
+    async def get_user_skill(self, user_id: UUID, skill_id: UUID) -> Optional[UserSkill]:
+        for us in self.user_skills.values():
+            if us.user_id == user_id and us.skill_id == skill_id:
+                us.skill = self.skills.get(skill_id)
+                return us
+        return None
+
+    async def get_skill_evidence_for_user(self, user_id: UUID, skill_id: UUID) -> List[SkillEvidence]:
+        res = [e for e in self.evidence.values() if e.user_id == user_id and e.skill_id == skill_id]
+        res.sort(key=lambda x: x.created_at)
+        return res
+
+    async def get_evidence_by_source(self, source_type: str, source_id: UUID) -> Optional[SkillEvidence]:
+        for e in self.evidence.values():
+            if e.source_type == source_type and e.source_id == source_id:
+                return e
+        return None
+
+    async def add_evidence(self, ev: SkillEvidence) -> SkillEvidence:
+        if not getattr(ev, "id", None):
+            ev.id = uuid4()
+        if not getattr(ev, "created_at", None):
+            ev.created_at = datetime.now(timezone.utc)
+        self.evidence[ev.id] = ev
+        return ev
+
+    async def upsert_user_skill(self, user_id: UUID, skill_id: UUID, current_level: str, confidence: str) -> UserSkill:
+        now = datetime.now(timezone.utc)
+        for us in self.user_skills.values():
+            if us.user_id == user_id and us.skill_id == skill_id:
+                us.current_level = current_level
+                us.confidence = confidence
+                us.updated_at = now
+                us.skill = self.skills.get(skill_id)
+                return us
+        us = UserSkill(
+            id=uuid4(),
+            user_id=user_id,
+            skill_id=skill_id,
+            current_level=current_level,
+            confidence=confidence,
+            updated_at=now,
+        )
+        us.skill = self.skills.get(skill_id)
+        self.user_skills[us.id] = us
+        return us
+
+
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.storage = storage
@@ -623,6 +717,12 @@ class MockSession:
             storage["test_attempts"],
             storage["test_attempt_answers"],
             storage["careers"],
+        )
+        self.adaptive_test_repo.session = self
+        self.skill_repo = InMemorySkillRepo(
+            storage["skills"],
+            storage["skill_evidence"],
+            storage["user_skills"],
         )
 
 
@@ -708,6 +808,9 @@ async def test_storage():
         "test_question_banks": {},
         "test_attempts": {},
         "test_attempt_answers": {},
+        "skills": {},
+        "skill_evidence": {},
+        "user_skills": {},
     }
 
     # Pre-seed assessment questions
@@ -899,6 +1002,24 @@ async def test_storage():
             )
             storage["test_question_banks"][qid] = q_rec
 
+    # Pre-seed skills catalog
+    sk_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "skills_catalog.json"
+    if sk_file.is_file():
+        with open(sk_file, "r", encoding="utf-8") as f:
+            sk_data = json.load(f)
+        for item in sk_data.get("skills", []):
+            sid = UUID(item["id"])
+            skill = Skill(
+                id=sid,
+                slug=item["slug"],
+                name=item["name"],
+                description=item.get("description"),
+                aliases=item.get("aliases", []),
+                category=item.get("category", "General"),
+                created_at=datetime.now(timezone.utc),
+            )
+            storage["skills"][sid] = skill
+
     return storage
 
 
@@ -912,6 +1033,7 @@ async def async_client(test_storage, monkeypatch):
     from app.services.profile_service import ProfileService
     from app.services.compatibility_service import CompatibilityService
     from app.services.adaptive_test_service import AdaptiveTestService
+    from app.services.skill_service import SkillService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -958,6 +1080,12 @@ async def async_client(test_storage, monkeypatch):
         self.career_repo = mock_session.career_repo
 
     monkeypatch.setattr(AdaptiveTestService, "__init__", mock_adaptive_test_service_init)
+
+    def mock_skill_service_init(self, session):
+        self.session = mock_session
+        self.repo = mock_session.skill_repo
+
+    monkeypatch.setattr(SkillService, "__init__", mock_skill_service_init)
 
     async def override_get_db():
         yield mock_session

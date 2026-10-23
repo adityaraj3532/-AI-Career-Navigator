@@ -30,6 +30,11 @@ from app.models.adaptive_test import (
     TestAttempt,
     TestAttemptAnswer,
 )
+from app.models.skill import (
+    Skill,
+    SkillEvidence,
+    UserSkill,
+)
 
 __all__ = [
     "User",
@@ -58,4 +63,7 @@ __all__ = [
     "TestQuestionBank",
     "TestAttempt",
     "TestAttemptAnswer",
+    "Skill",
+    "SkillEvidence",
+    "UserSkill",
 ]

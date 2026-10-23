@@ -1,0 +1,84 @@
+{
+  "skills": [
+    {
+      "id": "00000000-0000-0000-0000-000000000101",
+      "slug": "dsa",
+      "name": "Data Structures & Algorithms",
+      "description": "Foundational computer science concepts including arrays, trees, graphs, sorting, and algorithmic complexity.",
+      "aliases": ["DSA", "Data Structures", "Algorithms", "Data Structures & Algorithms"],
+      "category": "Computer Science"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000102",
+      "slug": "python",
+      "name": "Python",
+      "description": "High-level programming language widely used in backend development, data engineering, and machine learning.",
+      "aliases": ["Python", "Python 3", "py", "Python Programming"],
+      "category": "Programming"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000103",
+      "slug": "cpp",
+      "name": "C++",
+      "description": "High-performance systems programming language supporting object-oriented and generic paradigms.",
+      "aliases": ["C++", "cpp", "C Plus Plus", "C++ Programming"],
+      "category": "Programming"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000104",
+      "slug": "java",
+      "name": "Java",
+      "description": "Robust, object-oriented, cross-platform programming language widely used in enterprise backend systems.",
+      "aliases": ["Java", "Core Java", "Java Programming"],
+      "category": "Programming"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000105",
+      "slug": "quantitative-aptitude",
+      "name": "Quantitative Aptitude",
+      "description": "Mathematical problem-solving, arithmetic, percentages, algebra, and numerical reasoning skills.",
+      "aliases": ["Quantitative Aptitude", "Quant", "Maths", "Mathematics", "Aptitude"],
+      "category": "Aptitude"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000106",
+      "slug": "logical-reasoning",
+      "name": "Logical Reasoning",
+      "description": "Deductive reasoning, analytical patterns, syllogisms, and critical problem-solving.",
+      "aliases": ["Logical Reasoning", "Logic", "Analytical Reasoning", "Reasoning"],
+      "category": "Aptitude"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000107",
+      "slug": "machine-learning",
+      "name": "Machine Learning",
+      "description": "Supervised and unsupervised learning, model evaluation, deep learning, and statistical pattern recognition.",
+      "aliases": ["Machine Learning", "ML", "AI/ML", "Artificial Intelligence"],
+      "category": "Data Science"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000108",
+      "slug": "sql-databases",
+      "name": "SQL & Databases",
+      "description": "Relational data modeling, querying, indexing, transactions, and performance optimization.",
+      "aliases": ["SQL", "Databases", "Database Management", "RDBMS", "PostgreSQL"],
+      "category": "Data Science"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000109",
+      "slug": "ui-ux-design",
+      "name": "UI/UX Design",
+      "description": "User experience research, wireframing, usability principles, interface aesthetics, and design systems.",
+      "aliases": ["UI/UX", "UI/UX Design", "Product Design", "User Interface Design"],
+      "category": "Design"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000110",
+      "slug": "system-design",
+      "name": "System Design",
+      "description": "Scalable systems architecture, distributed caching, load balancing, microservices, and high availability.",
+      "aliases": ["System Design", "Distributed Systems", "Software Architecture"],
+      "category": "Software Engineering"
+    }
+  ]
+}

@@ -250,4 +250,37 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - The platform grows to thousands of concurrent test takers where empirical response logs enable formal item calibration for standardized psychometric IRT.
 
+---
+
+## ADR-014: Skill Tracker Engine (Step 1) – Multi-Source Weighted Evidence, Strict Source Caps, Append-Only Provenance, and Deterministic Reporting
+
+- **Options Considered**:
+  - Direct mutable single skill rating column on profile vs Append-only evidence log (`skill_evidence`) with aggregated state projection (`user_skills`).
+  - Equal weighting across all sources vs Hierarchy of evidence weights (Test 1.0 > Project 0.6 > Roadmap 0.35 > Declared 0.15).
+  - Allowing self-declarations to claim "advanced" vs Strict source level caps (declared capped at "beginner", roadmap capped at "intermediate", only tests/projects reach "advanced").
+  - Invoking LLM inside `GET /v1/skills/{id}/report` vs Strictly deterministic computation with `report_status="fallback"` (decoupling AI narrative to Step 2 background job).
+- **Choice**: **Multi-Source Weighted Recency Engine with Strict Non-Test Level Caps, Append-Only Provenance Log, Pure Deterministic GET Reporting, and Atomic Transaction Ingestion**
+- **Reason**:
+  - **Auditability & Provenance**:
+    - Aggregating skill levels as a simple mutable field erases history and conflates self-reported aspiration with verified empirical mastery.
+    - Append-only `skill_evidence` preserves every diagnostic test result, completed roadmap milestone, and declaration with source IDs and subtopic granularity.
+  - **Source Hierarchy & Non-Test Level Caps**:
+    - Self-declaration has the lowest weight (`0.15`) and is strictly hard-capped at `"beginner"` ($1.0$). Users cannot claim intermediate or advanced standing without demonstrable evidence.
+    - Roadmap completion evidence is capped at `"intermediate"` ($2.0$).
+    - If a user has no diagnostic test evidence, their aggregate skill level is strictly bounded by the maximum cap of their non-test sources.
+  - **Recency Decay**:
+    - Real-world technical proficiency degrades without practice. An exponential half-life decay model ($T_{1/2} = 30$ days, $w = 0.5^{\Delta t / 30}$) ensures recent performance weighs higher than historical milestones.
+  - **No AI in GET Requests**:
+    - Calling an LLM synchronously during a GET request introduces unacceptable latency (1–4s), flakiness, token cost, and potential prompt injection vulnerabilities.
+    - `GET /v1/skills/{id}/report` is 100% deterministic, instant ($< 5$ms), pure, and returns structured quantitative insights (level, confidence, strengths, weak subtopics, trend) with `report_status="fallback"`. LLM narrative synthesis is deferred to Step 2 background workers.
+  - **Atomic Transaction Ingestion**:
+    - `POST /v1/tests/{id}/finish` commits attempt completion, subtopic performance breakdown, `skill_evidence` insertion, and `user_skills` upsert in a single database transaction, guarded by unique constraints on `(source_type, source_id)` for idempotency on retries.
+  - **Security & Authorization**:
+    - No public or authenticated endpoints allow creating arbitrary test or project evidence directly. Only `POST /v1/skills/declare` exists. Ownership access violations strictly return HTTP 404 to prevent resource enumeration.
+- **Trade-off**:
+  - Requires maintaining versioned weighting configs (`SKILL_TRACKER_WEIGHTS_V1`) and running deterministic level recalculation upon new evidence ingestion.
+- **Revisit if**:
+  - Step 2 is approved to incorporate asynchronous LLM narrative reporting via ARQ workers.
+
+
 

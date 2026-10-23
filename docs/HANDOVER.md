@@ -4,6 +4,78 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-23 (Antigravity) – Skill Tracker Engine (Step 1)
+
+### Done
+- **Data Models & Migration**:
+  - `Skill` (`app/models/skill.py`):
+    - `id` (UUID PK), `slug` (unique String 64, indexed), `name` (String 128), `description` (Text), `aliases` (JSONB, default `[]`), `category` (String 64, default "General"), `created_at`.
+  - `SkillEvidence` (`app/models/skill.py`):
+    - `id` (UUID PK), `user_id` (FK to users ondelete CASCADE, indexed), `skill_id` (FK to skills ondelete CASCADE, indexed).
+    - `source_type` ("test" | "project" | "roadmap" | "declared"), `source_id` (UUID nullable).
+    - `score` (Integer 0–100 nullable), `level_signal` ("beginner" | "intermediate" | "advanced" nullable).
+    - `subtopic_scores` (JSONB, default `{}`), `summary` (Text nullable), `created_at`.
+    - `UniqueConstraint("source_type", "source_id", name="uq_skill_evidence_source")`.
+    - Composite index `ix_skill_evidence_user_skill` on `(user_id, skill_id)`.
+  - `UserSkill` (`app/models/skill.py`):
+    - `id` (UUID PK), `user_id` (FK to users ondelete CASCADE, indexed), `skill_id` (FK to skills ondelete CASCADE, indexed).
+    - `current_level` (String 32, default "beginner"), `confidence` (String 32, default "low"), `updated_at`.
+    - `UniqueConstraint("user_id", "skill_id", name="uq_user_skill")`.
+  - Authored migration `alembic/versions/007_create_skill_tracker_tables.py` (tested upgrade and downgrade static SQL).
+- **Skills Catalog Seed & Seeder**:
+  - Authored `app/data/seed/skills_catalog.json` with 10 core skills (DSA, Python, C++, Java, Quantitative Aptitude, Logical Reasoning, ML, SQL & Databases, UI/UX Design, System Design).
+  - Authored idempotent seeder `scripts/seed_skills_catalog.py`.
+- **Pure Skill Tracker Engine (`app/services/skill_tracker_engine.py`)**:
+  - Versioned config object: `SKILL_TRACKER_WEIGHTS_V1`.
+  - Source weights: `test: 1.0` > `project: 0.6` > `roadmap: 0.35` > `declared: 0.15`.
+  - Exponential recency decay: half-life $T_{1/2} = 30$ days ($w = w_0 \times 0.5^{\Delta t / 30}$).
+  - Strict source level caps:
+    - `declared`: hard-capped at `"beginner"` (1.0).
+    - `roadmap`: hard-capped at `"intermediate"` (2.0).
+    - Non-test evidence cap: if user has no test evidence, their aggregate level cannot exceed the maximum cap of their non-test sources.
+  - Discrete level thresholds: $\ge 2.5 \rightarrow$ `"advanced"`, $\ge 1.6 \rightarrow$ `"intermediate"`, $< 1.6 \rightarrow$ `"beginner"`.
+  - Confidence formula: requires total weight $\ge 1.8$ AND at least 1 test for `"high"`; $\ge 0.8$ for `"medium"`; otherwise `"low"`.
+  - Subtopic analysis: identifies strengths ($\ge 70\%$) and weak subtopics ($< 60\%$).
+  - Trend progression: strictly returns `None` if fewer than 2 evidence items; returns direction (`improving` / `stable` / `declining`), start/current levels, and chronological history when $\ge 2$.
+  - Fallback deterministic report text generator with `report_status="fallback"`.
+- **Repository, Services & API Layer**:
+  - `SkillRepository` (`app/repositories/skill_repository.py`): case-insensitive search across slugs, names, and aliases.
+  - `SkillService` (`app/services/skill_service.py`): listing user skills, handling self-declarations, generating reports with code-driven next recommendations, and ingesting test results.
+  - Test finish atomic sync: `AdaptiveTestService.finish_test` computes subtopic performance, resolves matching catalog skill, inserts `SkillEvidence`, and updates `UserSkill` in the exact same database transaction.
+  - Double finish idempotency: retrying test finish checks `get_evidence_by_source("test", attempt_id)` and prevents duplicate evidence insertion.
+  - API router (`app/api/v1/skills.py`):
+    - `GET /v1/skills`: current user's tracked skills.
+    - `GET /v1/skills/{skill_id}/report`: detailed deterministic report; ownership violation strictly returns HTTP 404.
+    - `POST /v1/skills/declare`: self-declared skills endpoint (lowest weight, capped at beginner).
+    - Strict `extra="forbid"` on all request schemas.
+    - Zero endpoints to create test or project evidence directly.
+    - Never calls AI inside GET requests.
+- **Testing & Verification**:
+  - Created 17 unit and integration tests in `tests/test_skill_tracker.py`.
+  - Full project test suite execution: **97 passed, 1 skipped** (live Gemini smoke test).
+  - Code hygiene: `ruff check app tests scripts` passes cleanly with 0 errors.
+- **Documentation**:
+  - Added ADR-014 in `docs/DECISIONS.md`.
+
+### In progress
+- Step 1 complete. Awaiting user review before Step 2 (`career_skill_report_v1` prompt through gateway, run in ARQ background worker on test finish or profile update, storing `ai_report`, `ai_strengths`, `ai_weaknesses`, `generated_at`, with GET returning cached AI report or fallback).
+
+### Broken or risky
+- None. All 97 tests pass cleanly.
+
+### Next (Step 2 upon approval)
+- Background ARQ worker for asynchronous report generation using `career_skill_report_v1` prompt.
+- Table columns / schema update to cache AI narrative reports (`ai_report`, `ai_strengths`, `ai_weaknesses`, `generated_at`).
+- Updating `GET /v1/skills/{id}/report` to return cached AI report with `report_status="completed"` (or fallback if pending/failed).
+
+### Do not touch
+- Never call AI inside a GET request.
+- Keep source caps strict: declared capped at beginner, roadmap capped at intermediate.
+- Trend must remain strictly None if fewer than 2 evidence items.
+- Production auth: Bearer JWT only.
+
+---
+
 ## Session: 2026-10-23 (Antigravity) – Adaptive Skill & Aptitude Testing Engine (Stage 1)
 
 ### Done
