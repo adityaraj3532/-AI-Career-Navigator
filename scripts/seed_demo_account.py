@@ -24,7 +24,7 @@ import sys
 from typing import Any, Dict
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
@@ -211,8 +211,8 @@ async def seed_demo_account(
 
     if existing_user and force_refresh:
         logger.info("Force refresh specified: deleting existing demo user %s (%s)", clean_email, existing_user.id)
-        # Cascades to student_profiles, assessment_attempts, roadmaps, portfolios, etc.
-        await session.delete(existing_user)
+        # Directly execute SQL delete so PostgreSQL ON DELETE CASCADE cleans up all child rows
+        await session.execute(delete(User).where(User.id == existing_user.id))
         await session.flush()
         existing_user = None
 

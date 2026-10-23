@@ -85,7 +85,7 @@ def upgrade() -> None:
         sa.Column('is_correct', sa.Boolean(), nullable=False),
         sa.Column('time_taken_seconds', sa.Integer(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint('attempt_id', 'question_id', name='uq_attempt_question_answer'),
+        sa.UniqueConstraint('attempt_id', 'question_id', name='uq_test_attempt_question_answer'),
     )
     op.create_index(op.f('ix_test_attempt_answers_attempt_id'), 'test_attempt_answers', ['attempt_id'], unique=False)
     op.create_index(op.f('ix_test_attempt_answers_question_id'), 'test_attempt_answers', ['question_id'], unique=False)

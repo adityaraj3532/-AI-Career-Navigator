@@ -296,8 +296,12 @@ def test_subset_validation_unknown_record_id_triggers_fallback():
 # ==============================================================================
 
 @pytest.mark.asyncio
-async def test_in_memory_rate_limiter_enforcement():
+async def test_in_memory_rate_limiter_enforcement(monkeypatch):
     """In-memory rate limiter strictly enforces hourly threshold when Redis is offline."""
+    def raise_redis_offline():
+        raise ConnectionError("Redis offline")
+
+    monkeypatch.setattr("app.services.chat_rate_limiter.get_redis_client", raise_redis_offline)
     clear_in_memory_rate_limiter()
     test_user_id = uuid4()
 

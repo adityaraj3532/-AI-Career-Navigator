@@ -352,7 +352,7 @@ async def test_get_current_user_me_endpoint(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_forgot_and_reset_password_flow(async_client: AsyncClient, test_storage):
     # 1. Signup user
-    email = "reset_test@example.com"
+    email = f"reset_test_{uuid4().hex[:8]}@example.com"
     old_pw = "OriginalPass123!"
     await async_client.post(
         "/v1/auth/signup",
@@ -448,7 +448,7 @@ async def test_auth_rate_limiting(async_client: AsyncClient):
     from app.core.rate_limit import reset_rate_limits
     reset_rate_limits()
 
-    rate_limit_email = "ratelimit_target@example.com"
+    rate_limit_email = f"ratelimit_{uuid4().hex[:8]}@example.com"
     for _ in range(5):
         resp = await async_client.post(
             "/v1/auth/forgot-password",

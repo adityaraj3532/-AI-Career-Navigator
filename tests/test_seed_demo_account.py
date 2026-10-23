@@ -144,6 +144,21 @@ class ComprehensiveMockSession:
 
                 return MockScalars()
 
+        if getattr(stmt, "is_delete", False) or hasattr(stmt, "table"):
+            table_name = getattr(stmt.table, "name", None) if hasattr(stmt, "table") else None
+            if table_name == "users":
+                for clause in getattr(stmt, "_where_criteria", []):
+                    left_key = getattr(getattr(clause, "left", None), "key", None)
+                    right_val = getattr(getattr(clause, "right", None), "value", None)
+                    if left_key == "id" and right_val:
+                        user_id = right_val
+                        self.storage["users"].pop(user_id, None)
+                        for t_name, store in self.storage.items():
+                            to_delete = [k for k, obj in store.items() if getattr(obj, "user_id", None) == user_id]
+                            for k in to_delete:
+                                store.pop(k, None)
+            return MockResult([])
+
         try:
             entity = stmt.column_descriptions[0]["entity"]
             table_name = getattr(entity, "__tablename__", None)

@@ -209,7 +209,7 @@ class TestAttempt(Base):
 class TestAttemptAnswer(Base):
     __tablename__ = "test_attempt_answers"
     __table_args__ = (
-        UniqueConstraint("attempt_id", "question_id", name="uq_attempt_question_answer"),
+        UniqueConstraint("attempt_id", "question_id", name="uq_test_attempt_question_answer"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

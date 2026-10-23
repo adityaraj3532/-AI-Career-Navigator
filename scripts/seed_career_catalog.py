@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Dict
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
@@ -176,7 +177,18 @@ async def seed_career_catalog(session: AsyncSession, json_path: Path) -> Dict[st
     # 6. Careers
     career_records: Dict[str, Career] = {}
     for item in data.get("careers", []):
-        stmt = select(Career).where(Career.code == item["code"])
+        stmt = (
+            select(Career)
+            .where(Career.code == item["code"])
+            .options(
+                selectinload(Career.exams),
+                selectinload(Career.colleges),
+                selectinload(Career.courses),
+                selectinload(Career.certificates),
+                selectinload(Career.internships),
+                selectinload(Career.related_careers),
+            )
+        )
         res = await session.execute(stmt)
         career = res.scalar_one_or_none()
 

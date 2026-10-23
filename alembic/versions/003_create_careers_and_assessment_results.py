@@ -17,6 +17,17 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Alembic creates alembic_version.version_num as VARCHAR(32) by default,
+    # while this repository's revision identifiers can exceed that length.
+    # Widen it before Alembic records this revision at the end of the upgrade.
+    op.alter_column(
+        'alembic_version',
+        'version_num',
+        existing_type=sa.String(length=32),
+        type_=sa.String(length=64),
+        existing_nullable=False,
+    )
+
     # 1. careers table
     op.create_table(
         'careers',
