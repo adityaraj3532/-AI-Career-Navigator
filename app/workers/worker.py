@@ -10,6 +10,7 @@ from app.workers.tasks import (
     cleanup_expired_test_attempts,
     generate_career_compatibility_explanation,
     generate_skill_report_narrative,
+    generate_weekly_progress_summary,
 )
 
 settings = get_settings()
@@ -37,6 +38,7 @@ class WorkerSettings:
         ping_task,
         generate_career_compatibility_explanation,
         generate_skill_report_narrative,
+        generate_weekly_progress_summary,
         cleanup_expired_test_attempts,
         cleanup_expired_auth_tokens,
     ]

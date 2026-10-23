@@ -12,6 +12,7 @@ from app.api.v1.roadmaps import router as roadmaps_router
 from app.api.v1.shortlist import router as shortlist_router
 from app.api.v1.skills import router as skills_router
 from app.api.v1.interviews import router as interviews_router
+from app.api.v1.progress import router as progress_router
 
 api_v1_router = APIRouter()
 api_v1_router.include_router(health_router)
@@ -27,5 +28,6 @@ api_v1_router.include_router(recommendations_router)
 api_v1_router.include_router(portfolio_router)
 api_v1_router.include_router(roadmaps_router)
 api_v1_router.include_router(interviews_router)
+api_v1_router.include_router(progress_router)
 
 

@@ -428,6 +428,18 @@ class InterviewService:
                     if self.skill_repo and session.career_id:
                         await self._record_skill_evidence(user_id, session.id, session.career_id, ovr_avg)
 
+                    # Ledger activity hook
+                    session_db = getattr(self.repo, "session", None)
+                    if session_db:
+                        from app.services.activity_service import record_activity
+                        await record_activity(
+                            session_db,
+                            user_id=user_id,
+                            source_type="interview_session",
+                            source_id=str(session.id),
+                            occurred_at=now,
+                        )
+
             await self.repo.update_session(session)
 
         # Retrieve sample answer now that candidate has submitted

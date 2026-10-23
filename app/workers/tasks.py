@@ -40,6 +40,12 @@ class RecommendationEnrichmentOutput(BaseModel):
     enriched_why: str
 
 
+class WeeklyProgressSummaryOutput(BaseModel):
+    weekly_summary: str
+    highlights: list[str]
+    encouragement: str
+
+
 # ARQ Background Worker Tasks
 async def generate_career_compatibility_explanation(ctx: Dict[Any, Any], snapshot_id_str: str) -> Optional[Dict[str, Any]]:
     """Generates an asynchronous AI explanation for a career compatibility snapshot and caches it."""
@@ -180,3 +186,72 @@ async def cleanup_expired_auth_tokens(ctx: Dict[Any, Any]) -> int:
     total = rt_count + pr_count
     logger.info("Purged %d expired tokens (%d refresh, %d password reset).", total, rt_count, pr_count)
     return total
+
+
+async def generate_weekly_progress_summary(ctx: Dict[Any, Any], user_id_str: str) -> Optional[Dict[str, Any]]:
+    """Background ARQ job generating AI-assisted weekly progress summary for a student."""
+    logger.info("Generating weekly progress summary for user %s", user_id_str)
+    user_id = UUID(user_id_str)
+
+    from app.models.profile import StudentProfile
+    from app.models.progress import ActivityEvent
+
+    async with async_session_factory() as session:
+        # Check profile
+        stmt = select(StudentProfile).where(StudentProfile.user_id == user_id)
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+        if not profile:
+            return None
+
+        # Fetch recent 7-day activity events
+        now = datetime.now(timezone.utc)
+        stmt_events = (
+            select(ActivityEvent.source_type, ActivityEvent.local_date)
+            .where(ActivityEvent.user_id == user_id)
+            .order_by(ActivityEvent.local_date.desc())
+            .limit(30)
+        )
+        res_events = await session.execute(stmt_events)
+        events = res_events.all()
+
+        total_activities = len(events)
+        sources = set(e[0] for e in events)
+
+        # Fallback summary
+        fallback_data = {
+            "weekly_summary": f"You completed {total_activities} learning activities across {len(sources)} categories.",
+            "highlights": [f"{cnt} {st} items" for st, cnt in {s: sum(1 for e in events if e[0] == s) for s in sources}.items()],
+            "encouragement": "Consistent daily engagement builds durable expertise.",
+        }
+
+        # Try LLM Gateway with template fallback
+        gateway = LLMGateway()
+        inputs = {
+            "name": profile.name or "Student",
+            "total_activities": total_activities,
+            "sources": list(sources),
+        }
+
+        data = fallback_data
+        try:
+            gw_res = await gateway.generate(
+                prompt_name="weekly_progress_summary_v1",
+                inputs=inputs,
+                output_schema=WeeklyProgressSummaryOutput,
+                temperature=0.3,
+            )
+            if gw_res.structured_output:
+                data = gw_res.structured_output.model_dump()
+        except Exception as exc:
+            logger.info("LLM weekly summary generation fallback used: %s", exc)
+
+        try:
+            redis = get_redis_client()
+            cache_key = f"weekly_summary:{user_id_str}:{now.strftime('%Y-W%W')}"
+            await redis.set(cache_key, json.dumps(data), ex=7 * 86400)
+        except Exception as exc:
+            logger.debug("Redis caching skipped: %s", exc)
+
+        return data
+

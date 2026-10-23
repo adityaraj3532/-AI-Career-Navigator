@@ -19,6 +19,7 @@ from app.repositories.career_repository import CareerRepository
 from app.repositories.profile_repository import ProfileRepository
 from app.repositories.roadmap_repository import RoadmapRepository
 from app.repositories.skill_repository import SkillRepository
+from app.services.activity_service import record_activity
 from app.schemas.roadmap import (
     CreateRoadmapRequest,
     ReplanResponse,
@@ -264,6 +265,16 @@ class RoadmapService:
             item.completed_at = now
             # Hook: Ingest low-weight roadmap evidence into Skill Tracker
             await self._record_roadmap_skill_evidence(user.id, item)
+            # Hook: Record activity in ledger
+            session = getattr(self.repo, "session", None)
+            if session:
+                await record_activity(
+                    session,
+                    user_id=user.id,
+                    source_type="roadmap_item",
+                    source_id=str(item.id),
+                    occurred_at=now,
+                )
         elif req.force_undo and req.status != "done":
             item.completed_at = None
 

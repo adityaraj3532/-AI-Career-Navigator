@@ -4,6 +4,62 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Progress Tracking, Activity Ledger, Streaks, Milestones & Weekly Goals (Step 1a, Step 1b, and Step 2)
+
+### Done
+- **Database Schema & Migration (`alembic/versions/013_create_progress_and_milestones.py`)**:
+  - Confirmed single linear Alembic head at `012_create_mock_interviews` before authoring migration `013_create_progress_and_milestones.py`.
+  - Added `timezone` column (`String(64)`, server default `"Asia/Kolkata"`, validated against IANA zoneinfo) to `student_profiles`.
+  - Created `activity_events` table (`id`, `user_id`, `source_type`, `source_id`, `occurred_at`, `local_date`, `tz`) with `UNIQUE(source_type, source_id)` and compound index `(user_id, local_date)`.
+  - Created `milestone_rules` table (`id`, `key` unique, `rule_type`, `params` JSONB, `title`, `version`, `active`).
+  - Created `user_milestones` table (`id`, `user_id`, `rule_id`, `awarded_at`, `evidence` JSONB) with `UNIQUE(user_id, rule_id)`.
+  - Created `weekly_goals` table (`id`, `user_id`, `week_start` Monday date, `goal_type`, `target`, timestamps) with `UNIQUE(user_id, week_start, goal_type)`.
+- **Pure Calculation Engine (`app/services/progress_engine.py`)**:
+  - `PROGRESS_CONFIG_V1`: Versioned configuration containing default timezone, rest-day allowance rules, default estimated minutes (30), and weekly bounds.
+  - `compute_local_date(occurred_at, tz_str)`: Evaluates local calendar date from UTC timestamp using IANA timezone with safe fallback to `"Asia/Kolkata"`.
+  - `current_streak(activity_dates, today, allow_rest_day=True)`: Streak is alive if active today or yesterday; supports single rest-day allowance per ISO calendar week to bridge 1-day gaps without breaking streak continuity. Returns 0 if inactive both today and yesterday.
+  - `longest_streak(activity_dates, allow_rest_day=True)`: Computes historical maximum streak.
+  - `weekly_goal_streak(goal_completions)`: Computes consecutive completed weekly targets.
+  - `goal_progress(actual, target)`: Computes percentage progress clamped to $[0.0, 100.0]$.
+  - `roadmap_percent(items)`: Weighted by `estimated_minutes` (default 30); strictly excludes skipped items from denominator; returns `None` for empty roadmaps or 100% skipped items.
+  - Milestone Evaluator: Pure parameter validator enforcing Pydantic schemas (`EventCountParams`, `StreakParams`, `PhaseCompletedParams`) with `extra="forbid"`. Zero `eval` or dynamic code execution.
+- **Activity Ledger Service (`app/services/activity_service.py`)**:
+  - `record_activity(session, user_id, source_type, source_id, occurred_at, tz_str)`: Uses `ON CONFLICT (source_type, source_id) DO NOTHING`. Server-set time only; no backdating. Evaluates and awards eligible milestones server-side within the same transaction.
+  - Wired into existing source events:
+    1. Roadmap item completion (`RoadmapService.update_roadmap_item` on `status="done"`). Un-ticking and re-ticking creates zero duplicate records.
+    2. Adaptive test completion (`AdaptiveTestService.finish_test`).
+    3. Mock interview session completion (`InterviewService.submit_answer` when `session_completed`).
+  - `seed_milestones`: Idempotently seeds default rules (`first_test`, `first_project`, `streak_7_days`, `first_phase_done`) from `app/data/seed/milestone_rules.json`.
+- **API Endpoints (`app/api/v1/progress.py` & `app/services/progress_service.py`)**:
+  - `GET /v1/progress/summary`: Full summary for current user (timezone, roadmap_percent, per-phase breakdown, skills gained, current & longest streak, awarded milestones with effort badges for streaks, weekly goals). Guaranteed pure read: NEVER writes or awards in GET. Foreign users / missing profiles return 404.
+  - `PUT /v1/progress/weekly-goals`: Upserts target for roadmap items or minutes. Validates `week_start` is a Monday; restricts edits strictly to current and next week; rejects targets exceeding profile weekly available hours.
+  - Removed `POST /evaluate-milestones` completely (milestones are awarded server-side upon activity events).
+- **Step 2 Background Job (`app/workers/tasks.py` & `app/workers/worker.py`)**:
+  - Added `generate_weekly_progress_summary` ARQ task with prompt `weekly_progress_summary_v1.txt` and template fallback.
+  - Generates neutral, encouraging recap without shaming copy or cross-user rankings.
+- **Testing & QA**:
+  - 22 tests in `tests/test_progress_step1a.py` covering consecutive days, multi-day gaps, rest-day allowance, multiple events per day, active yesterday vs today, 23:30 IST vs UTC boundary, DST transitions, timezone change immutability, longest streak, no activity returns 0, duplicate event ignored, re-tick creates no new day, milestone awarded once, rule edits do not revoke, invalid rule params rejected, Monday week boundary, and flat query count.
+  - 5 tests in `tests/test_progress_api.py` covering GET pure-read, 404 on missing profile, past-week goal edit rejection, future week bounds, and extra field rejection.
+  - Full project test suite: **195 passed, 1 skipped**, 0 failures.
+  - `ruff check app tests` passes cleanly with 0 errors.
+
+### Active Invariants
+- `activity_events` is an append-only ledger; changing `StudentProfile.timezone` NEVER rewrites historical rows.
+- Server-set UTC timestamps only; backdating is impossible and no direct event creation endpoint exists.
+- Milestones are rules stored as data, validated by Pydantic models with `extra="forbid"`. No `eval` or dynamic code execution.
+- Milestones are awarded server-side upon activity recording and are immutable (never revoked by later rule edits or deactivations).
+- Streaks never feed skill levels, compatibility scores, or public portfolios. Streak milestones are effort badges.
+- `GET /v1/progress/summary` never writes to the database.
+- Weekly goals are editable only for current and next week Mondays.
+- All scores, streaks, and progress percentages are deterministic Python functions.
+
+### Pending / Next Items
+- Wire any future additional activity sources (e.g. portfolio publishing, career comparison, exam cycle registration) into `record_activity`.
+- Portfolio Step 3: Decide between frontend print stylesheet vs maintained backend library for one-page resume export (user decision pending).
+- Verify catalog items CLI when human reviewers approve draft questions.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Mock Interviews: Complete Execution of Step 1a, Step 1b, and Step 2 (Full Lifecycle, Endpoints, AI Judging, Multilingual Support, and Analytics)
 
 ### Done

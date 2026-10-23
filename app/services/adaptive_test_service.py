@@ -360,6 +360,17 @@ class AdaptiveTestService:
             subtopic_scores=subtopic_scores,
         )
 
+        session_db = getattr(self.repo, "session", None)
+        if session_db:
+            from app.services.activity_service import record_activity
+            await record_activity(
+                session_db,
+                user_id=user.id,
+                source_type="adaptive_test",
+                source_id=str(attempt.id),
+                occurred_at=now,
+            )
+
         return FinishTestResponse(
             test_id=attempt.id,
             status=attempt.status,

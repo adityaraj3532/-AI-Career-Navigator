@@ -1,0 +1,44 @@
+[
+  {
+    "key": "first_test",
+    "rule_type": "event_count_at_least",
+    "params": {
+      "source_type": "adaptive_test",
+      "count": 1
+    },
+    "title": "First Test Completed",
+    "version": 1,
+    "active": true
+  },
+  {
+    "key": "first_project",
+    "rule_type": "event_count_at_least",
+    "params": {
+      "source_type": "roadmap_item",
+      "count": 1
+    },
+    "title": "First Project Completed",
+    "version": 1,
+    "active": true
+  },
+  {
+    "key": "streak_7_days",
+    "rule_type": "streak_at_least",
+    "params": {
+      "days": 7
+    },
+    "title": "7-Day Streak",
+    "version": 1,
+    "active": true
+  },
+  {
+    "key": "first_phase_done",
+    "rule_type": "phase_completed",
+    "params": {
+      "phase_order": 1
+    },
+    "title": "First Roadmap Phase Completed",
+    "version": 1,
+    "active": true
+  }
+]

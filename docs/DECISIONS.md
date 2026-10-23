@@ -474,6 +474,40 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Real-time video/audio conversational mock interviews require streaming WebRTC connections.
 
+---
+
+## ADR-022: Progress Tracking, Activity Ledger, Streaks, Milestones, and Weekly Goals (Step 1a & Step 1b)
+
+- **Options Considered**:
+  - Mutable integer `streak_count` on user table vs Append-only activity ledger (`activity_events`).
+  - Evaluating streaks strictly in UTC vs Local calendar dates computed at event occurrence.
+  - Dynamically executing milestone expressions (`eval`/Python scripts) vs Schema-validated milestone rules stored as data (`milestone_rules`).
+  - Revoking milestones upon rule edits vs Immutable `user_milestones` snapshots.
+- **Choice**: **Append-Only Activity Ledger, Local Date Materialization at Event Ingestion, Rules as Data (Pydantic-guarded JSONB, zero `eval`), Immutable Milestones, and Documented Rest-Day Allowance**
+- **Reason**:
+  - **Why Local Dates (Learner-Aligned Timezones)**:
+    - Learners perceive study sessions according to their wall-clock calendar day. UTC rolls over at 05:30 AM IST in India. If streaks were evaluated in UTC, an evening study session at 11:30 PM IST would fall into UTC day $D$, but an 08:00 AM IST session would fall into UTC day $D-1$, splitting single-day study sessions across arbitrary UTC days and falsely breaking streaks.
+    - `activity_events.local_date` is evaluated from the user's profile timezone at the exact moment of event insertion (`occurred_at`). Crucially, if a user updates their profile timezone later, historical `local_date` values in past rows are never rewritten, preserving historical truth.
+  - **Why Append-Only Activity Ledger**:
+    - Mutable counters on user rows are notoriously prone to race conditions, double-counting, and desynchronization.
+    - The ledger enforces a strict database constraint: `UNIQUE(source_type, source_id)` with `ON CONFLICT DO NOTHING`. When a student un-ticks and re-ticks a roadmap item, or takes multiple tests on the same day, no duplicate events are inserted and artificial streak manipulation is impossible.
+    - Server-set UTC timestamps only; backdating is strictly prevented, and there is no direct public endpoint allowing arbitrary event creation.
+  - **Why Rules are Data, Not Code**:
+    - Milestone rules are stored in `milestone_rules` with an enumerated `rule_type` (`event_count_at_least`, `streak_at_least`, `phase_completed`) and parameters strictly validated by typed Pydantic models (`extra="forbid"`).
+    - Dynamic Python `eval`, expression parsers, or arbitrary code execution are prohibited, neutralizing code-injection vulnerabilities. Product teams can seed or adjust rules without touching server logic.
+    - Milestones are awarded server-side within the event transaction. Once awarded in `user_milestones`, achievements are immutable and never revoked by later rule edits or deactivations.
+  - **Documented Rest-Day Allowance**:
+    - In `PROGRESS_CONFIG_V1`, at most 1 rest day per ISO calendar week (Monday to Sunday) is permitted to bridge a single missed day without breaking the active streak. The rest day itself is not counted toward active days, but prevents punitive streak resets for healthy rest intervals.
+  - **Neutral State & Zero Exploits**:
+    - Progress endpoints return neutral factual state fields only, with no comparative social ranking or shaming copy.
+    - Streaks never feed skill ratings, compatibility scores, or the public portfolio. Streak milestones are strictly labeled as effort badges.
+    - `GET /v1/progress/summary` is guaranteed pure read: it creates zero database rows and never writes.
+- **Trade-off**:
+  - Requires storing one row per unique learning activity in `activity_events`; however, rows are compact and indexed on `(user_id, local_date)`, enabling sub-millisecond streak queries.
+- **Revisit if**:
+  - Massive multi-tenant scale ($> 10^8$ rows) requires partitioning `activity_events` by local year/month.
+
+
 
 
 

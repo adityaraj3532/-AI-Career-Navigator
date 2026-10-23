@@ -1487,6 +1487,9 @@ class MockSession:
             def scalar(self):
                 return self._val
 
+            def all(self):
+                return [(self._val,)] if self._val else []
+
             def scalars(self):
                 class MockScalars:
                     def __init__(self, items):
@@ -1494,6 +1497,9 @@ class MockSession:
 
                     def all(self):
                         return self._items
+
+                    def first(self):
+                        return self._items[0] if self._items else None
 
                 return MockScalars([self._val] if self._val else [])
 
@@ -1569,6 +1575,10 @@ async def test_storage():
         "session_questions": {},
         "interview_answers": {},
         "interview_results": {},
+        "activity_events": {},
+        "milestone_rules": {},
+        "user_milestones": {},
+        "weekly_goals": {},
     }
 
     # Pre-seed assessment questions

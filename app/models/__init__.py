@@ -54,6 +54,12 @@ from app.models.interview import (
     InterviewAnswer,
     InterviewResult,
 )
+from app.models.progress import (
+    ActivityEvent,
+    MilestoneRule,
+    UserMilestone,
+    WeeklyGoal,
+)
 
 __all__ = [
     "User",
@@ -101,4 +107,8 @@ __all__ = [
     "SessionQuestion",
     "InterviewAnswer",
     "InterviewResult",
+    "ActivityEvent",
+    "MilestoneRule",
+    "UserMilestone",
+    "WeeklyGoal",
 ]

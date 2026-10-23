@@ -46,6 +46,11 @@ class StudentProfile(Base):
         default=list,
         nullable=False,
     )
+    timezone: Mapped[str] = mapped_column(
+        String(64),
+        default="Asia/Kolkata",
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
