@@ -1,4 +1,5 @@
 
+import ProjectsPage from './ProjectsPage'
 import LearnPage from './LearnPage'
 import ProfilePage from './ProfilePage'
 import ProgressPage from './ProgressPage'
@@ -139,6 +140,8 @@ export default function App() {
               <ProfilePage />
             ) : active === 'Learn' ? (
               <LearnPage />
+            ) : active === 'Projects' ? (
+              <ProjectsPage />
             ) : active === 'Home' ? (
           <div className="page-content">
             <section className="welcome">
