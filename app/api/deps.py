@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 from fastapi import Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -78,3 +78,26 @@ async def get_current_user(
         )
 
     return user
+
+
+async def get_optional_current_user(
+    auth_header: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security_bearer)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> Optional[User]:
+    """Extracts current user if valid bearer token is provided; returns None otherwise."""
+    if not auth_header or not auth_header.credentials:
+        return None
+
+    try:
+        payload = decode_access_token(auth_header.credentials)
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            return None
+        user_id = UUID(user_id_str)
+        user_repo = UserRepository(session)
+        user = await user_repo.get_by_id(user_id)
+        if user and user.is_active:
+            return user
+        return None
+    except Exception:
+        return None

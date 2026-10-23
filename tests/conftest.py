@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -18,7 +18,14 @@ from app.models.assessment import (
     AssessmentVersion,
 )
 from app.models.auth import RefreshToken
-from app.models.career import Career
+from app.models.career import (
+    Career,
+    Certificate,
+    College,
+    Course,
+    Exam,
+    Internship,
+)
 from app.models.user import User
 from app.schemas.assessment import AnswerItem
 
@@ -115,15 +122,62 @@ class InMemoryCareerRepo:
         for c in self.careers.values():
             if allow_drafts or c.status == "verified":
                 res.append(c)
-        res.sort(key=lambda x: x.title)
+        res.sort(key=lambda x: (x.title, str(x.id)))
         return res
 
-    async def get_by_id(self, career_id: UUID) -> Optional[Career]:
-        return self.careers.get(career_id)
+    async def list_careers(
+        self,
+        cluster: Optional[str] = None,
+        demand: Optional[str] = None,
+        min_salary: Optional[int] = None,
+        max_salary: Optional[int] = None,
+        allow_drafts: bool = False,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Career], int]:
+        res = []
+        for c in self.careers.values():
+            if not allow_drafts and c.status != "verified":
+                continue
+            if cluster and c.cluster != cluster:
+                continue
+            if demand and c.demand != demand:
+                continue
+            if min_salary is not None:
+                entry_min = c.salary_ranges.get("entry", {}).get("min", 0) if c.salary_ranges else 0
+                mid_min = c.salary_ranges.get("mid", {}).get("min", 0) if c.salary_ranges else 0
+                if entry_min < min_salary and mid_min < min_salary:
+                    continue
+            if max_salary is not None:
+                entry_max = c.salary_ranges.get("entry", {}).get("max", 0) if c.salary_ranges else 0
+                mid_max = c.salary_ranges.get("mid", {}).get("max", 0) if c.salary_ranges else 0
+                if entry_max > max_salary and mid_max > max_salary:
+                    continue
+            res.append(c)
 
-    async def get_by_code(self, code: str) -> Optional[Career]:
+        res.sort(key=lambda x: (x.title, str(x.id)))
+        total_count = len(res)
+        offset = (page - 1) * page_size
+        return res[offset : offset + page_size], total_count
+
+    async def get_by_id(
+        self,
+        career_id: UUID,
+        allow_drafts: bool = False,
+        eager_load: bool = True,
+    ) -> Optional[Career]:
+        c = self.careers.get(career_id)
+        if not c:
+            return None
+        if not allow_drafts and c.status != "verified":
+            return None
+        return c
+
+    async def get_by_code(self, code: str, allow_drafts: bool = False) -> Optional[Career]:
         for c in self.careers.values():
             if c.code == code:
+                if not allow_drafts and c.status != "verified":
+                    return None
                 return c
         return None
 
@@ -248,10 +302,55 @@ class InMemoryAssessmentRepo:
 
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
+        self.storage = storage
         self.user_repo = InMemoryUserRepo(storage["users"])
         self.token_repo = InMemoryTokenRepo(storage["tokens"])
         self.career_repo = InMemoryCareerRepo(storage["careers"])
         self.assessment_repo = InMemoryAssessmentRepo(storage)
+
+    def add(self, instance):
+        if not getattr(instance, "id", None):
+            instance.id = uuid4()
+        table_name = getattr(instance, "__tablename__", None)
+        if table_name and table_name in self.storage:
+            self.storage[table_name][instance.id] = instance
+
+    async def execute(self, stmt):
+        class MockResult:
+            def __init__(self, val):
+                self._val = val
+
+            def scalar_one_or_none(self):
+                return self._val
+
+            def scalar(self):
+                return self._val
+
+            def scalars(self):
+                class MockScalars:
+                    def __init__(self, items):
+                        self._items = items
+
+                    def all(self):
+                        return self._items
+
+                return MockScalars([self._val] if self._val else [])
+
+        try:
+            entity = stmt.column_descriptions[0]["entity"]
+            table_name = getattr(entity, "__tablename__", None)
+            items = list(self.storage.get(table_name, {}).values())
+
+            for clause in getattr(stmt, "_where_criteria", []):
+                col_name = getattr(clause.left, "key", None)
+                val = getattr(clause.right, "value", None)
+                if col_name and val is not None:
+                    items = [it for it in items if getattr(it, col_name, None) == val]
+
+            match = items[0] if items else None
+            return MockResult(match)
+        except Exception:
+            return MockResult(None)
 
     async def commit(self):
         pass
@@ -280,6 +379,11 @@ async def test_storage():
         "answers": {},
         "careers": {},
         "results": {},
+        "exams": {},
+        "colleges": {},
+        "courses": {},
+        "certificates": {},
+        "internships": {},
     }
 
     # Pre-seed assessment questions
@@ -311,25 +415,138 @@ async def test_storage():
             )
             storage["questions"][qid] = q_rec
 
-    # Pre-seed careers
-    careers_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "careers.json"
-    if careers_file.is_file():
-        with open(careers_file, "r", encoding="utf-8") as f:
+    # Pre-seed from catalog if available, else from careers.json
+    catalog_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "career_catalog.json"
+    if catalog_file.is_file():
+        with open(catalog_file, "r", encoding="utf-8") as f:
             cdata = json.load(f)
-        for c in cdata:
+
+        exam_map = {}
+        for item in cdata.get("exams", []):
+            eid = uuid4()
+            e = Exam(
+                id=eid,
+                code=item["code"],
+                name=item["name"],
+                description=item["description"],
+                conducting_body=item["conducting_body"],
+                exam_level=item["exam_level"],
+                registration_url=item.get("registration_url"),
+                source_url=item["source_url"],
+                status=item.get("status", "draft"),
+                created_at=datetime.now(timezone.utc),
+            )
+            exam_map[item["code"]] = e
+            storage["exams"][eid] = e
+
+        college_map = {}
+        for item in cdata.get("colleges", []):
+            cid = uuid4()
+            c = College(
+                id=cid,
+                name=item["name"],
+                location=item["location"],
+                official_url=item["official_url"],
+                fees=item.get("fees"),
+                cutoffs=item.get("cutoffs"),
+                nirf_rank=item.get("nirf_rank"),
+                source_url=item["source_url"],
+                status=item.get("status", "draft"),
+                created_at=datetime.now(timezone.utc),
+            )
+            college_map[item["name"]] = c
+            storage["colleges"][cid] = c
+
+        course_map = {}
+        for item in cdata.get("courses", []):
+            crid = uuid4()
+            cr = Course(
+                id=crid,
+                code=item["code"],
+                title=item["title"],
+                degree_level=item["degree_level"],
+                duration=item["duration"],
+                description=item["description"],
+                source_url=item["source_url"],
+                status=item.get("status", "draft"),
+                created_at=datetime.now(timezone.utc),
+            )
+            course_map[item["code"]] = cr
+            storage["courses"][crid] = cr
+
+        cert_map = {}
+        for item in cdata.get("certificates", []):
+            ctid = uuid4()
+            ct = Certificate(
+                id=ctid,
+                code=item["code"],
+                name=item["name"],
+                issuing_organization=item["issuing_organization"],
+                description=item["description"],
+                url=item.get("url"),
+                source_url=item["source_url"],
+                status=item.get("status", "draft"),
+                created_at=datetime.now(timezone.utc),
+            )
+            cert_map[item["code"]] = ct
+            storage["certificates"][ctid] = ct
+
+        intern_map = {}
+        for item in cdata.get("internships", []):
+            iid = uuid4()
+            intern = Internship(
+                id=iid,
+                code=item["code"],
+                title=item["title"],
+                domain=item["domain"],
+                stipend_range=item.get("stipend_range"),
+                duration_months=item.get("duration_months"),
+                locations=item.get("locations", []),
+                description=item["description"],
+                source_url=item["source_url"],
+                status=item.get("status", "draft"),
+                created_at=datetime.now(timezone.utc),
+            )
+            intern_map[item["code"]] = intern
+            storage["internships"][iid] = intern
+
+        career_map = {}
+        for c in cdata.get("careers", []):
             cid = uuid4()
             career = Career(
                 id=cid,
                 code=c["code"],
                 title=c["title"],
                 cluster=c["cluster"],
+                aliases=c.get("aliases", []),
                 overview=c["overview"],
+                description=c.get("description"),
+                day_in_life=c.get("day_in_life"),
+                salary_ranges=c.get("salary_ranges"),
+                demand=c.get("demand", "moderate"),
+                required_skills=c.get("required_skills", []),
+                education_paths=c.get("education_paths", []),
                 status=c.get("status", "draft"),
                 source_url=c["source_url"],
                 dimension_weights=c["dimension_weights"],
                 created_at=datetime.now(timezone.utc),
             )
+            career.exams = [exam_map[x] for x in c.get("exam_codes", []) if x in exam_map]
+            career.colleges = [college_map[x] for x in c.get("college_names", []) if x in college_map]
+            career.courses = [course_map[x] for x in c.get("course_codes", []) if x in course_map]
+            career.certificates = [cert_map[x] for x in c.get("certificate_codes", []) if x in cert_map]
+            career.internships = [intern_map[x] for x in c.get("internship_codes", []) if x in intern_map]
+            career_map[c["code"]] = career
             storage["careers"][cid] = career
+
+        # Related careers linking
+        for c in cdata.get("careers", []):
+            career = career_map[c["code"]]
+            career.related_careers = [
+                career_map[rc]
+                for rc in c.get("related_career_codes", [])
+                if rc in career_map and career_map[rc].id != career.id
+            ]
 
     return storage
 
@@ -340,6 +557,7 @@ async def async_client(test_storage, monkeypatch):
 
     from app.services.auth_service import AuthService
     from app.services.assessment_service import AssessmentService
+    from app.services.career_service import CareerService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -356,6 +574,13 @@ async def async_client(test_storage, monkeypatch):
         self.gateway = gateway or LLMGateway(provider=MockLLMProvider())
 
     monkeypatch.setattr(AssessmentService, "__init__", mock_assessment_init)
+
+    def mock_career_service_init(self, session):
+        self.session = mock_session
+        self.repo = mock_session.career_repo
+        self.assessment_repo = mock_session.assessment_repo
+
+    monkeypatch.setattr(CareerService, "__init__", mock_career_service_init)
 
     async def override_get_db():
         yield mock_session

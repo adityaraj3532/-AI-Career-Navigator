@@ -178,3 +178,28 @@ This document tracks all foundational technology and architecture choices, evalu
   - Requires maintaining curated multidimensional weights for all verified careers in the database.
 - **Revisit if**:
   - Never. Vocational counseling integrity and student privacy require deterministic matching and zero AI hallucination of career pathways.
+
+---
+
+## ADR-011: Career Catalog Stage 1a – Relational Normalization, Integer Salary Bounds & Verification Gates
+
+- **Options Considered**:
+  - Embedded JSONB documents on `careers` for exams, colleges, courses, certificates, internships.
+  - Fully normalized relational schema with dedicated tables and composite primary key association tables (`career_exams`, `career_colleges`, `career_courses`, `career_certificates`, `career_internships`, `career_related`, `college_exams`).
+- **Choice**: **Fully Normalized Relational Architecture with Selectinload & Verification Gates**
+- **Reason**:
+  - **Relational Integrity & Deduplication**: Real-world entities (e.g. `JEE_MAIN`, `Indian Institute of Technology Bombay`) link to dozens of different engineering and science careers. Normalizing them prevents data duplication, update anomalies, and out-of-sync accreditation metadata.
+  - **Bounded Eager Loading ($O(1)$ Queries)**: Using SQLAlchemy `lazy="selectin"` on secondary relationships ensures eager loading executes exactly 1 query per relation type using `WHERE id IN (...)`, completely avoiding $N+1$ query explosion regardless of linked entity counts.
+  - **Self-Relation Guard**: The `career_related` association table enforces `CHECK (career_id != related_career_id)` at the database engine level, preventing circular self-reference bugs.
+  - **Salary as Integer INR per Year**:
+    - Floating-point representations introduce precision drift in financial calculations and search filters.
+    - Ambiguous monthly vs annual figures confuse students across differing regional compensation models.
+    - Specifying exact `{min, max}` integer bounds in INR per year across standardized bands (`entry`, `mid`, `senior`), explicitly labelled approximate with `as_of_year` and `source_url`, enables deterministic SQL range indexing and transparent student guidance.
+  - **Drafts Policy & Verification Integrity**:
+    - All initial seed records are created with `status="draft"` alongside authoritative `source_url`.
+    - Sensitive college fields (`fees`, `cutoffs`, `nirf_rank`) remain `null` until manually verified and must include a reporting year to avoid misleading students with outdated fee or percentile expectations.
+    - Only `verified` records are visible in production APIs unless `ENVIRONMENT=development` and `ALLOW_DRAFT_CAREERS=true`.
+- **Trade-off**:
+  - Requires maintaining explicit junction tables and structured seed catalogs.
+- **Revisit if**:
+  - Catalog requirements pivot to purely unvetted third-party web scraper feeds without data verification guarantees.

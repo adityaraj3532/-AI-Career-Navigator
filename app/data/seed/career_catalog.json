@@ -1,0 +1,799 @@
+{
+  "source_note": "Original career catalog profiles authored for AI Career Navigator. Factually grounded in Indian industry standards, accredited regulatory frameworks (UGC, AICTE, NMC, ICAI, UPSC), and verified public university programs.",
+  "exams": [
+    {
+      "code": "JEE_MAIN",
+      "name": "Joint Entrance Examination (Main)",
+      "description": "National standardized entrance examination for admission into undergraduate engineering programs across NITs, IIITs, and Centrally Funded Technical Institutes.",
+      "conducting_body": "National Testing Agency (NTA)",
+      "exam_level": "National",
+      "registration_url": "https://jeemain.nta.ac.in",
+      "source_url": "https://jeemain.nta.ac.in",
+      "status": "draft"
+    },
+    {
+      "code": "JEE_ADVANCED",
+      "name": "Joint Entrance Examination (Advanced)",
+      "description": "Premier national examination for qualifying candidates from JEE Main for admissions into the undergraduate B.Tech and dual degree curricula across all 23 Indian Institutes of Technology (IITs).",
+      "conducting_body": "Indian Institutes of Technology (IITs) / Joint Admission Board",
+      "exam_level": "National",
+      "registration_url": "https://jeeadv.ac.in",
+      "source_url": "https://jeeadv.ac.in",
+      "status": "draft"
+    },
+    {
+      "code": "GATE",
+      "name": "Graduate Aptitude Test in Engineering (GATE)",
+      "description": "National examination testing comprehensive understanding of undergraduate engineering subjects for Master's admissions and PSU recruitment.",
+      "conducting_body": "Indian Institute of Science (IISc) and IITs on rotation",
+      "exam_level": "National",
+      "registration_url": "https://gate2026.iitb.ac.in",
+      "source_url": "https://gate2026.iitb.ac.in",
+      "status": "draft"
+    },
+    {
+      "code": "NEET_UG",
+      "name": "National Eligibility cum Entrance Test (Undergraduate)",
+      "description": "Single unified national entrance test for undergraduate medical and dental programs across government and private medical colleges in India.",
+      "conducting_body": "National Testing Agency (NTA)",
+      "exam_level": "National",
+      "registration_url": "https://exams.nta.ac.in/NEET",
+      "source_url": "https://exams.nta.ac.in/NEET",
+      "status": "draft"
+    },
+    {
+      "code": "CA_FOUNDATION",
+      "name": "Chartered Accountancy Foundation Examination",
+      "description": "Entry-level qualifying assessment conducted by the statutory body for registration into the Chartered Accountancy chartered track in India.",
+      "conducting_body": "Institute of Chartered Accountants of India (ICAI)",
+      "exam_level": "Professional",
+      "registration_url": "https://eservices.icai.org",
+      "source_url": "https://www.icai.org",
+      "status": "draft"
+    },
+    {
+      "code": "UPSC_CSE",
+      "name": "Civil Services Examination",
+      "description": "Multi-stage national competitive examination (Prelims, Mains, Personality Test) for recruitment to prestigious higher civil services including IAS, IPS, and IFS.",
+      "conducting_body": "Union Public Service Commission (UPSC)",
+      "exam_level": "National",
+      "registration_url": "https://upsconline.nic.in",
+      "source_url": "https://upsc.gov.in",
+      "status": "draft"
+    },
+    {
+      "code": "UCEED",
+      "name": "Undergraduate Common Entrance Examination for Design",
+      "description": "National entrance examination for admission to Bachelor of Design (B.Des) programs at IIT Bombay, IIT Delhi, IIT Guwahati, IIT Hyderabad, and IIITDM Jabalpur.",
+      "conducting_body": "IIT Bombay",
+      "exam_level": "National",
+      "registration_url": "https://uceed.iitb.ac.in",
+      "source_url": "https://uceed.iitb.ac.in",
+      "status": "draft"
+    }
+  ],
+  "colleges": [
+    {
+      "name": "Indian Institute of Technology Bombay",
+      "location": {
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "country": "India"
+      },
+      "official_url": "https://www.iitb.ac.in",
+      "source_url": "https://www.iitb.ac.in",
+      "fees": null,
+      "cutoffs": null,
+      "nirf_rank": null,
+      "status": "draft"
+    },
+    {
+      "name": "Indian Institute of Technology Madras",
+      "location": {
+        "city": "Chennai",
+        "state": "Tamil Nadu",
+        "country": "India"
+      },
+      "official_url": "https://www.iitm.ac.in",
+      "source_url": "https://www.iitm.ac.in",
+      "fees": null,
+      "cutoffs": null,
+      "nirf_rank": null,
+      "status": "draft"
+    },
+    {
+      "name": "All India Institute of Medical Sciences New Delhi",
+      "location": {
+        "city": "New Delhi",
+        "state": "Delhi",
+        "country": "India"
+      },
+      "official_url": "https://www.aiims.edu",
+      "source_url": "https://www.aiims.edu",
+      "fees": null,
+      "cutoffs": null,
+      "nirf_rank": null,
+      "status": "draft"
+    },
+    {
+      "name": "Institute of Chartered Accountants of India",
+      "location": {
+        "city": "New Delhi",
+        "state": "Delhi",
+        "country": "India"
+      },
+      "official_url": "https://www.icai.org",
+      "source_url": "https://www.icai.org",
+      "fees": null,
+      "cutoffs": null,
+      "nirf_rank": null,
+      "status": "draft"
+    },
+    {
+      "name": "National Institute of Design Ahmedabad",
+      "location": {
+        "city": "Ahmedabad",
+        "state": "Gujarat",
+        "country": "India"
+      },
+      "official_url": "https://www.nid.edu",
+      "source_url": "https://www.nid.edu",
+      "fees": null,
+      "cutoffs": null,
+      "nirf_rank": null,
+      "status": "draft"
+    },
+    {
+      "name": "St. Stephen's College",
+      "location": {
+        "city": "New Delhi",
+        "state": "Delhi",
+        "country": "India"
+      },
+      "official_url": "https://www.ststephens.edu",
+      "source_url": "https://www.ststephens.edu",
+      "fees": null,
+      "cutoffs": null,
+      "nirf_rank": null,
+      "status": "draft"
+    }
+  ],
+  "courses": [
+    {
+      "code": "BTECH_CSE",
+      "title": "Bachelor of Technology in Computer Science and Engineering",
+      "degree_level": "Undergraduate",
+      "duration": "4 Years",
+      "description": "Rigorous undergraduate engineering program covering computer systems, algorithms, distributed architecture, networks, and software engineering principles.",
+      "source_url": "https://www.aicte-india.org",
+      "status": "draft"
+    },
+    {
+      "code": "MTECH_AI",
+      "title": "Master of Technology in Artificial Intelligence",
+      "degree_level": "Postgraduate",
+      "duration": "2 Years",
+      "description": "Advanced technical curriculum focusing on statistical machine learning, deep learning, computer vision, natural language processing, and scalable AI infrastructure.",
+      "source_url": "https://www.iitb.ac.in",
+      "status": "draft"
+    },
+    {
+      "code": "MBBS_DEGREE",
+      "title": "Bachelor of Medicine and Bachelor of Surgery (MBBS)",
+      "degree_level": "Undergraduate Professional",
+      "duration": "5.5 Years (including 1 Year Compulsory Rotatory Internship)",
+      "description": "Foundational clinical medical degree covering anatomy, physiology, pharmacology, pathology, community medicine, and practical clinical rotations.",
+      "source_url": "https://www.nmc.org.in",
+      "status": "draft"
+    },
+    {
+      "code": "CA_CURRICULUM",
+      "title": "Chartered Accountancy Professional Qualification",
+      "degree_level": "Professional Designation",
+      "duration": "4 - 5 Years (Integrated with Practical Training)",
+      "description": "Premier professional credential in accounting, taxation, auditing, business laws, and strategic financial management regulated by the Parliament of India.",
+      "source_url": "https://www.icai.org",
+      "status": "draft"
+    },
+    {
+      "code": "BDES_PROD_DESIGN",
+      "title": "Bachelor of Design in Interaction and Product Design",
+      "degree_level": "Undergraduate",
+      "duration": "4 Years",
+      "description": "Human-centered design curriculum covering visual communication, user research methodologies, prototyping, ergonomic evaluation, and digital interfaces.",
+      "source_url": "https://www.nid.edu",
+      "status": "draft"
+    },
+    {
+      "code": "BTECH_MECH",
+      "title": "Bachelor of Technology in Mechanical Engineering",
+      "degree_level": "Undergraduate",
+      "duration": "4 Years",
+      "description": "Comprehensive engineering discipline focusing on mechanics, thermodynamics, fluid dynamics, manufacturing processes, robotics, and computer-aided design.",
+      "source_url": "https://www.aicte-india.org",
+      "status": "draft"
+    }
+  ],
+  "certificates": [
+    {
+      "code": "AWS_SOL_ARCH",
+      "name": "AWS Certified Solutions Architect - Associate",
+      "issuing_organization": "Amazon Web Services",
+      "description": "Industry credential validating knowledge of distributed systems design, cloud security, compute optimization, and cloud storage architectures.",
+      "url": "https://aws.amazon.com/certification/certified-solutions-architect-associate/",
+      "source_url": "https://aws.amazon.com/certification/",
+      "status": "draft"
+    },
+    {
+      "code": "GOOGLE_DATA_ANALYTICS",
+      "name": "Google Data Analytics Professional Certificate",
+      "issuing_organization": "Google Career Certificates",
+      "description": "Rigorous hands-on program demonstrating proficiency in data cleaning, SQL analysis, R programming, spreadsheets, and Tableau visualizations.",
+      "url": "https://grow.google/certificates/data-analytics/",
+      "source_url": "https://grow.google/certificates/",
+      "status": "draft"
+    },
+    {
+      "code": "DEEP_LEARNING_SPEC",
+      "name": "Deep Learning Specialization",
+      "issuing_organization": "DeepLearning.AI",
+      "description": "Technical curriculum covering convolutional neural networks, sequence models, transformers, hyperparameter tuning, and PyTorch/TensorFlow implementations.",
+      "url": "https://www.deeplearning.ai/courses/deep-learning-specialization/",
+      "source_url": "https://www.deeplearning.ai/",
+      "status": "draft"
+    },
+    {
+      "code": "GOOGLE_UX_DESIGN",
+      "name": "Google UX Design Professional Certificate",
+      "issuing_organization": "Google Career Certificates",
+      "description": "Comprehensive training in empathy mapping, wireframing, Figma design systems, low and high-fidelity prototyping, and conducting usability studies.",
+      "url": "https://grow.google/certificates/ux-design/",
+      "source_url": "https://grow.google/certificates/",
+      "status": "draft"
+    },
+    {
+      "code": "CSWP_SOLIDWORKS",
+      "name": "Certified SOLIDWORKS Professional (CSWP)",
+      "issuing_organization": "Dassault Systèmes",
+      "description": "Industry benchmark certification validating ability to design and analyze parametric parts and movable assemblies using SOLIDWORKS software.",
+      "url": "https://www.solidworks.com/certifications",
+      "source_url": "https://www.solidworks.com",
+      "status": "draft"
+    }
+  ],
+  "internships": [
+    {
+      "code": "SDE_INTERNSHIP",
+      "title": "Software Engineering Summer Intern",
+      "domain": "Software Development & Technology",
+      "stipend_range": {
+        "currency": "INR",
+        "min_per_month": 40000,
+        "max_per_month": 120000
+      },
+      "duration_months": 2,
+      "locations": ["Bengaluru", "Hyderabad", "Pune", "Gurugram", "Remote"],
+      "description": "Hands-on software development role building production microservices, REST/GraphQL APIs, unit testing, and contributing to CI/CD pipelines alongside senior mentors.",
+      "source_url": "https://nasscom.in",
+      "status": "draft"
+    },
+    {
+      "code": "DATA_ANALYST_INTERN",
+      "title": "Business Intelligence & Data Analyst Intern",
+      "domain": "Analytics & Business Intelligence",
+      "stipend_range": {
+        "currency": "INR",
+        "min_per_month": 25000,
+        "max_per_month": 60000
+      },
+      "duration_months": 3,
+      "locations": ["Bengaluru", "Mumbai", "Gurugram", "Remote"],
+      "description": "Internship focused on querying production data warehouses with SQL, constructing automated executive dashboards in PowerBI/Tableau, and conducting cohort retention analysis.",
+      "source_url": "https://nasscom.in",
+      "status": "draft"
+    },
+    {
+      "code": "AI_RESEARCH_INTERN",
+      "title": "Machine Learning Research Intern",
+      "domain": "Artificial Intelligence & R&D",
+      "stipend_range": {
+        "currency": "INR",
+        "min_per_month": 50000,
+        "max_per_month": 150000
+      },
+      "duration_months": 3,
+      "locations": ["Bengaluru", "Hyderabad", "Delhi NCR"],
+      "description": "Research and applied prototyping role experimenting with transformer fine-tuning, embedding generation, synthetic benchmark evaluation, and latency profiling.",
+      "source_url": "https://nasscom.in",
+      "status": "draft"
+    },
+    {
+      "code": "PRODUCT_DESIGN_INTERN",
+      "title": "Product & UI/UX Design Intern",
+      "domain": "Digital Product Design",
+      "stipend_range": {
+        "currency": "INR",
+        "min_per_month": 30000,
+        "max_per_month": 70000
+      },
+      "duration_months": 3,
+      "locations": ["Bengaluru", "Mumbai", "Remote"],
+      "description": "Design internship collaborating with product managers and engineers to conduct user interviews, iterate responsive UI wireframes in Figma, and build accessible component libraries.",
+      "source_url": "https://nasscom.in",
+      "status": "draft"
+    },
+    {
+      "code": "CLINICAL_ROTATION_INTERN",
+      "title": "Compulsory Rotatory Medical Intern",
+      "domain": "Clinical Medicine & Patient Care",
+      "stipend_range": {
+        "currency": "INR",
+        "min_per_month": 25000,
+        "max_per_month": 35000
+      },
+      "duration_months": 12,
+      "locations": ["Teaching Hospitals Across India"],
+      "description": "Stipendiary rotatory internship fulfilling statutory requirements under the National Medical Commission across internal medicine, obstetrics, pediatrics, surgery, and emergency care.",
+      "source_url": "https://www.nmc.org.in",
+      "status": "draft"
+    },
+    {
+      "code": "CA_ARTICLESHIP",
+      "title": "Chartered Accountancy Practical Trainee (Articleship)",
+      "domain": "Auditing, Taxation & Accounting",
+      "stipend_range": {
+        "currency": "INR",
+        "min_per_month": 15000,
+        "max_per_month": 30000
+      },
+      "duration_months": 24,
+      "locations": ["Pan-India with ICAI Chartered Accounting Firms"],
+      "description": "Statutorily mandated two-year practical training under a practicing Chartered Accountant firm conducting statutory audits, internal controls testing, and tax compliance.",
+      "source_url": "https://www.icai.org",
+      "status": "draft"
+    },
+    {
+      "code": "MECHANICAL_INTERN",
+      "title": "Mechanical Engineering Trainee",
+      "domain": "Manufacturing, Automotive & Robotics",
+      "stipend_range": {
+        "currency": "INR",
+        "min_per_month": 20000,
+        "max_per_month": 45000
+      },
+      "duration_months": 2,
+      "locations": ["Pune", "Chennai", "Bengaluru", "Ahmedabad"],
+      "description": "Industrial internship supporting CAD assembly design, GD&T drawing production, structural finite element analysis, and shop-floor quality inspection.",
+      "source_url": "https://www.aicte-india.org",
+      "status": "draft"
+    }
+  ],
+  "careers": [
+    {
+      "code": "SOFTWARE_DEVELOPER",
+      "title": "Software Development Engineer (SDE)",
+      "cluster": "Technology & Engineering",
+      "aliases": [
+        "Software Engineer",
+        "Backend Developer",
+        "Full Stack Developer",
+        "Programmer",
+        "Software Developer"
+      ],
+      "overview": "Designs, writes, tests, and deploys high-performance software systems and application services.",
+      "description": "A Software Development Engineer architects reliable software solutions ranging from backend microservices and distributed data pipelines to responsive frontend applications. SDEs work in agile teams collaborating with product managers, designers, and site reliability engineers to solve technical challenges with high availability and security.",
+      "day_in_life": "Morning starts with an agile stand-up discussing sprint deliverables and unblocking dependencies. The core day involves implementing business logic in code, conducting code reviews, writing comprehensive automated unit and integration tests, and debugging distributed traces. Afternoon may include architectural design discussions for upcoming technical initiatives.",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://nasscom.in",
+        "entry": { "min": 600000, "max": 1400000 },
+        "mid": { "min": 1500000, "max": 3000000 },
+        "senior": { "min": 3500000, "max": 7000000 }
+      },
+      "demand": "very_high",
+      "required_skills": [
+        { "name": "Data Structures & Algorithms", "level": "advanced" },
+        { "name": "Backend Frameworks (FastAPI / Spring / Go)", "level": "advanced" },
+        { "name": "Relational & NoSQL Databases", "level": "intermediate" },
+        { "name": "System Architecture & Design", "level": "intermediate" },
+        { "name": "CI/CD & Cloud Infrastructure", "level": "intermediate" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Science (Physics, Chemistry, Mathematics)",
+          "description": "Focus on strong mathematical reasoning, algorithmic logic, and fundamental physics."
+        },
+        {
+          "stage": "Undergraduate",
+          "degree": "B.Tech / B.E. in Computer Science or Information Technology",
+          "description": "Foundational 4-year degree covering algorithms, operating systems, databases, and software engineering."
+        }
+      ],
+      "dimension_weights": { "R": 40, "I": 90, "A": 35, "S": 30, "E": 45, "C": 75 },
+      "source_url": "https://nasscom.in",
+      "status": "draft",
+      "exam_codes": ["JEE_MAIN", "JEE_ADVANCED", "GATE"],
+      "college_names": ["Indian Institute of Technology Bombay", "Indian Institute of Technology Madras"],
+      "course_codes": ["BTECH_CSE"],
+      "certificate_codes": ["AWS_SOL_ARCH"],
+      "internship_codes": ["SDE_INTERNSHIP"],
+      "related_career_codes": ["DATA_ANALYST", "AI_ML_ENGINEER"]
+    },
+    {
+      "code": "DATA_ANALYST",
+      "title": "Data Analyst",
+      "cluster": "Data Science & Analytics",
+      "aliases": [
+        "Business Intelligence Analyst",
+        "BI Analyst",
+        "Product Analyst",
+        "Data Specialist"
+      ],
+      "overview": "Extracts insights from structured data to guide business and operational decision-making.",
+      "description": "Data Analysts bridge raw data sources and actionable strategic initiatives. They query relational databases, design self-service reporting dashboards, perform statistical hypothesis testing, and present insights to organizational leaders to optimize conversion rates, customer retention, and operational workflows.",
+      "day_in_life": "Beginning the day by verifying automated data ingest pipelines and key performance dashboards. Writing complex SQL queries to evaluate cohort behaviors, building interactive visual stories in PowerBI or Tableau, and collaborating with business stakeholders to answer product performance questions.",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://nasscom.in",
+        "entry": { "min": 450000, "max": 900000 },
+        "mid": { "min": 1000000, "max": 2000000 },
+        "senior": { "min": 2200000, "max": 4200000 }
+      },
+      "demand": "high",
+      "required_skills": [
+        { "name": "Advanced SQL & Data Modeling", "level": "advanced" },
+        { "name": "Data Visualization (Tableau / PowerBI)", "level": "advanced" },
+        { "name": "Python for Data Analysis (Pandas, NumPy)", "level": "intermediate" },
+        { "name": "Statistical Analysis & A/B Testing", "level": "intermediate" },
+        { "name": "Business Acumen & Storytelling", "level": "advanced" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Science with Mathematics or Commerce with Mathematics",
+          "description": "Cultivate strong statistics, probability, and spreadsheet modeling proficiencies."
+        },
+        {
+          "stage": "Undergraduate",
+          "degree": "B.Tech, B.Sc Statistics/Mathematics, or BCA",
+          "description": "Focus on data manipulation, database querying, and statistical inference."
+        }
+      ],
+      "dimension_weights": { "R": 20, "I": 95, "A": 40, "S": 30, "E": 50, "C": 70 },
+      "source_url": "https://nasscom.in",
+      "status": "draft",
+      "exam_codes": ["GATE", "JEE_MAIN"],
+      "college_names": ["Indian Institute of Technology Madras"],
+      "course_codes": ["BTECH_CSE"],
+      "certificate_codes": ["GOOGLE_DATA_ANALYTICS"],
+      "internship_codes": ["DATA_ANALYST_INTERN"],
+      "related_career_codes": ["SOFTWARE_DEVELOPER", "AI_ML_ENGINEER"]
+    },
+    {
+      "code": "AI_ML_ENGINEER",
+      "title": "AI/ML Engineer",
+      "cluster": "Artificial Intelligence & Data",
+      "aliases": [
+        "Machine Learning Engineer",
+        "Deep Learning Engineer",
+        "NLP Engineer",
+        "AI Scientist"
+      ],
+      "overview": "Designs and productionizes machine learning models, neural networks, and automated inference systems.",
+      "description": "An AI/ML Engineer operationalizes mathematical algorithms into scalable machine learning software. They curate data pipelines, train and fine-tune foundation models, optimize inference latency, and deploy robust APIs that integrate machine learning capability into consumer and enterprise applications.",
+      "day_in_life": "Reviewing overnight training loss curves and benchmark evaluations on GPU clusters. Writing PyTorch model architectures, building reproducible feature extraction pipelines, optimizing tensor operations with quantization tools, and deploying real-time inference containers.",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://nasscom.in",
+        "entry": { "min": 800000, "max": 1600000 },
+        "mid": { "min": 1800000, "max": 3600000 },
+        "senior": { "min": 4000000, "max": 8500000 }
+      },
+      "demand": "very_high",
+      "required_skills": [
+        { "name": "Machine Learning Foundations & PyTorch", "level": "expert" },
+        { "name": "Linear Algebra, Calculus & Probability", "level": "advanced" },
+        { "name": "NLP & Large Language Models", "level": "advanced" },
+        { "name": "MLOps, Docker & Model Serving", "level": "intermediate" },
+        { "name": "High-Performance Computing (CUDA, Triton)", "level": "intermediate" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Science (Physics, Chemistry, Mathematics)",
+          "description": "Master advanced calculus, vectors, matrix algebra, and algorithmic problem-solving."
+        },
+        {
+          "stage": "Undergraduate & Graduate",
+          "degree": "B.Tech in Computer Science followed by M.Tech / M.S. in Artificial Intelligence",
+          "description": "Deep coursework in statistical learning theory, computer vision, and neural network theory."
+        }
+      ],
+      "dimension_weights": { "R": 30, "I": 95, "A": 50, "S": 20, "E": 45, "C": 60 },
+      "source_url": "https://nasscom.in",
+      "status": "draft",
+      "exam_codes": ["JEE_MAIN", "JEE_ADVANCED", "GATE"],
+      "college_names": ["Indian Institute of Technology Bombay", "Indian Institute of Technology Madras"],
+      "course_codes": ["BTECH_CSE", "MTECH_AI"],
+      "certificate_codes": ["DEEP_LEARNING_SPEC"],
+      "internship_codes": ["AI_RESEARCH_INTERN"],
+      "related_career_codes": ["SOFTWARE_DEVELOPER", "DATA_ANALYST"]
+    },
+    {
+      "code": "UI_UX_DESIGNER",
+      "title": "UI/UX Designer",
+      "cluster": "Design & Media",
+      "aliases": [
+        "Product Designer",
+        "User Experience Designer",
+        "Interaction Designer",
+        "UI Designer"
+      ],
+      "overview": "Crafts intuitive digital interfaces, user flows, and aesthetic interactions for applications.",
+      "description": "UI/UX Designers merge human psychology, visual aesthetics, and interaction mechanics to build engaging digital products. They conduct empirical user research, build design systems, prototype dynamic interactions, and collaborate with frontend engineers to ensure seamless implementation.",
+      "day_in_life": "Synthesizing feedback from customer usability testing sessions. Refining Figma component libraries and token architectures, constructing interactive wireframes for upcoming features, and running design critique sessions with product teams.",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://nasscom.in",
+        "entry": { "min": 450000, "max": 950000 },
+        "mid": { "min": 1100000, "max": 2200000 },
+        "senior": { "min": 2500000, "max": 5000000 }
+      },
+      "demand": "high",
+      "required_skills": [
+        { "name": "User Research & Usability Testing", "level": "advanced" },
+        { "name": "Figma & Design Systems", "level": "expert" },
+        { "name": "Information Architecture & Wireframing", "level": "advanced" },
+        { "name": "Interaction Design & Prototyping", "level": "advanced" },
+        { "name": "Visual Design & Typography", "level": "advanced" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Any Stream (Science, Humanities, Commerce) with Creative Arts",
+          "description": "Focus on creative composition, cognitive psychology, and visual storytelling."
+        },
+        {
+          "stage": "Undergraduate",
+          "degree": "Bachelor of Design (B.Des) or Human-Computer Interaction",
+          "description": "Hands-on studio design curriculum covering ergonomic principles and interactive digital media."
+        }
+      ],
+      "dimension_weights": { "R": 15, "I": 65, "A": 95, "S": 55, "E": 45, "C": 35 },
+      "source_url": "https://nasscom.in",
+      "status": "draft",
+      "exam_codes": ["UCEED"],
+      "college_names": ["National Institute of Design Ahmedabad", "Indian Institute of Technology Bombay"],
+      "course_codes": ["BDES_PROD_DESIGN"],
+      "certificate_codes": ["GOOGLE_UX_DESIGN"],
+      "internship_codes": ["PRODUCT_DESIGN_INTERN"],
+      "related_career_codes": ["SOFTWARE_DEVELOPER"]
+    },
+    {
+      "code": "DOCTOR",
+      "title": "Doctor (General Physician / Specialist)",
+      "cluster": "Healthcare & Medicine",
+      "aliases": [
+        "Physician",
+        "Medical Officer",
+        "Doctor of Medicine",
+        "MBBS Doctor",
+        "Medical Specialist"
+      ],
+      "overview": "Diagnoses, treats, and cares for patients while managing public health and clinical therapies.",
+      "description": "A Doctor evaluates patient medical histories, conducts systematic clinical examinations, interprets diagnostic laboratory and imaging data, and prescribes therapeutic medical or surgical interventions. Doctors uphold clinical ethics, patient empathy, and evidence-based medicine.",
+      "day_in_life": "Conducting morning hospital rounds reviewing admitted inpatient recoveries and diagnostic charts. Performing outpatient consultations, diagnosing complex medical presentations, ordering targeted investigations, and mentoring interns in patient care protocols.",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://www.nmc.org.in",
+        "entry": { "min": 720000, "max": 1300000 },
+        "mid": { "min": 1600000, "max": 3200000 },
+        "senior": { "min": 3500000, "max": 7500000 }
+      },
+      "demand": "very_high",
+      "required_skills": [
+        { "name": "Clinical Diagnosis & Patient Assessment", "level": "expert" },
+        { "name": "Pharmacology & Therapeutics", "level": "advanced" },
+        { "name": "Emergency Medical Resuscitation", "level": "advanced" },
+        { "name": "Empathetic Communication & Bedside Manner", "level": "expert" },
+        { "name": "Medical Ethics & Medicolegal Protocols", "level": "advanced" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Science (Physics, Chemistry, Biology)",
+          "description": "Master biological anatomy, organic chemistry, physiology, and zoology."
+        },
+        {
+          "stage": "Undergraduate",
+          "degree": "Bachelor of Medicine and Bachelor of Surgery (MBBS)",
+          "description": "5.5-year rigorous program with 1-year compulsory rotatory hospital internship."
+        },
+        {
+          "stage": "Postgraduate Specialist",
+          "degree": "MD (Doctor of Medicine) / MS (Master of Surgery)",
+          "description": "3-year intensive clinical residency in a specialized branch of medicine or surgery."
+        }
+      ],
+      "dimension_weights": { "R": 40, "I": 90, "A": 20, "S": 95, "E": 40, "C": 55 },
+      "source_url": "https://www.nmc.org.in",
+      "status": "draft",
+      "exam_codes": ["NEET_UG"],
+      "college_names": ["All India Institute of Medical Sciences New Delhi"],
+      "course_codes": ["MBBS_DEGREE"],
+      "certificate_codes": [],
+      "internship_codes": ["CLINICAL_ROTATION_INTERN"],
+      "related_career_codes": []
+    },
+    {
+      "code": "CHARTERED_ACCOUNTANT",
+      "title": "Chartered Accountant (CA)",
+      "cluster": "Finance & Accounting",
+      "aliases": [
+        "CA",
+        "Statutory Auditor",
+        "Tax Consultant",
+        "Financial Controller",
+        "Forensic Auditor"
+      ],
+      "overview": "Ensures statutory compliance, financial integrity, tax strategy, and audit governance.",
+      "description": "Chartered Accountants are statutory guardians of financial transparency. They perform statutory financial audits, formulate corporate taxation strategies, manage financial risk, and advise boards on corporate restructuring and regulatory compliance with corporate law.",
+      "day_in_life": "Reviewing client balance sheets, general ledger balances, and audit sampling workpapers. Advising corporate clients on GST/direct tax optimization, verifying internal controls compliance, and ensuring full conformance with Indian Accounting Standards (Ind AS).",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://www.icai.org",
+        "entry": { "min": 750000, "max": 1400000 },
+        "mid": { "min": 1500000, "max": 2800000 },
+        "senior": { "min": 3200000, "max": 6500000 }
+      },
+      "demand": "high",
+      "required_skills": [
+        { "name": "Statutory Auditing & Assurance", "level": "expert" },
+        { "name": "Direct & Indirect Tax Legislation", "level": "expert" },
+        { "name": "Financial Modeling & Valuation", "level": "advanced" },
+        { "name": "Indian Accounting Standards (Ind AS) & IFRS", "level": "expert" },
+        { "name": "Corporate Governance & Company Law", "level": "advanced" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Commerce with Mathematics or Any Stream",
+          "description": "Strong foundation in accountancy, economics, commercial mathematics, and business law."
+        },
+        {
+          "stage": "Professional Track",
+          "degree": "ICAI Curriculum (Foundation -> Intermediate -> Articleship -> Final)",
+          "description": "Rigorous national examination curriculum integrated with 2 years of mandatory practical training."
+        }
+      ],
+      "dimension_weights": { "R": 10, "I": 70, "A": 15, "S": 35, "E": 80, "C": 95 },
+      "source_url": "https://www.icai.org",
+      "status": "draft",
+      "exam_codes": ["CA_FOUNDATION"],
+      "college_names": ["Institute of Chartered Accountants of India"],
+      "course_codes": ["CA_CURRICULUM"],
+      "certificate_codes": [],
+      "internship_codes": ["CA_ARTICLESHIP"],
+      "related_career_codes": ["CIVIL_SERVICES", "DATA_ANALYST"]
+    },
+    {
+      "code": "CIVIL_SERVICES",
+      "title": "Civil Services Officer (IAS / IPS / IFS)",
+      "cluster": "Public Administration & Governance",
+      "aliases": [
+        "IAS Officer",
+        "IPS Officer",
+        "Civil Servant",
+        "District Magistrate",
+        "Public Administrator"
+      ],
+      "overview": "Implements public policy, oversees district administration, and manages national governance.",
+      "description": "Civil Services Officers lead the administrative apparatus of the state and central government. They enforce law and order, execute public welfare schemes, oversee infrastructure programs, manage disaster responses, and advise political executives on public policy formulation.",
+      "day_in_life": "Presiding over district coordination reviews with departmental heads regarding public health, education, and development projects. Inspecting ground-level public infrastructure projects, conducting public grievance hearings, and liaising with state government secretariats on policy execution.",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://upsc.gov.in",
+        "entry": { "min": 672000, "max": 900000 },
+        "mid": { "min": 1200000, "max": 1800000 },
+        "senior": { "min": 2200000, "max": 3200000 }
+      },
+      "demand": "steady",
+      "required_skills": [
+        { "name": "Public Administration & Governance", "level": "expert" },
+        { "name": "Constitutional Law & Administrative Rules", "level": "expert" },
+        { "name": "Crisis & Disaster Management", "level": "advanced" },
+        { "name": "Stakeholder Diplomacy & Negotiation", "level": "expert" },
+        { "name": "Public Financial Administration", "level": "advanced" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Any Stream (Humanities, Science, or Commerce)",
+          "description": "Cultivate strong analytical writing, current affairs comprehension, and social science understanding."
+        },
+        {
+          "stage": "Undergraduate",
+          "degree": "Any Recognized Bachelor's Degree (BA, B.Sc, B.Tech, etc.)",
+          "description": "Completion of an accredited undergraduate degree, required for eligibility in UPSC Civil Services Examination."
+        }
+      ],
+      "dimension_weights": { "R": 25, "I": 65, "A": 30, "S": 75, "E": 90, "C": 70 },
+      "source_url": "https://upsc.gov.in",
+      "status": "draft",
+      "exam_codes": ["UPSC_CSE"],
+      "college_names": ["St. Stephen's College"],
+      "course_codes": [],
+      "certificate_codes": [],
+      "internship_codes": [],
+      "related_career_codes": ["CHARTERED_ACCOUNTANT"]
+    },
+    {
+      "code": "MECHANICAL_ENGINEER",
+      "title": "Mechanical Engineer",
+      "cluster": "Engineering & Manufacturing",
+      "aliases": [
+        "Design Engineer",
+        "Automotive Engineer",
+        "Production Engineer",
+        "Robotics Engineer",
+        "Thermal Engineer"
+      ],
+      "overview": "Designs, models, and manufactures mechanical machinery, thermal equipment, and robotic systems.",
+      "description": "Mechanical Engineers apply principles of physics, mechanics, and materials science to conceive, design, analyze, and produce physical devices. From automotive powertrains and aerospace components to industrial automation and HVAC networks, they ensure mechanical reliability and safety.",
+      "day_in_life": "Generating 3D parametric CAD models and running finite element stress simulations (FEA). Visiting prototype manufacturing facilities to inspect CNC machining tolerances, reviewing aerodynamic and thermal airflow simulations, and conducting structural load tests.",
+      "salary_ranges": {
+        "currency": "INR",
+        "is_approximate": true,
+        "as_of_year": 2026,
+        "source_url": "https://www.aicte-india.org",
+        "entry": { "min": 420000, "max": 800000 },
+        "mid": { "min": 900000, "max": 1800000 },
+        "senior": { "min": 2000000, "max": 4000000 }
+      },
+      "demand": "moderate",
+      "required_skills": [
+        { "name": "3D CAD Modeling (SOLIDWORKS / CATIA)", "level": "expert" },
+        { "name": "Thermodynamics & Heat Transfer", "level": "advanced" },
+        { "name": "Finite Element Analysis (FEA / ANSYS)", "level": "advanced" },
+        { "name": "Manufacturing Processes & Materials Science", "level": "advanced" },
+        { "name": "Geometric Dimensioning & Tolerancing (GD&T)", "level": "advanced" }
+      ],
+      "education_paths": [
+        {
+          "stage": "Secondary / Higher Secondary",
+          "stream": "Science (Physics, Chemistry, Mathematics)",
+          "description": "Strong foundation in Newtonian mechanics, thermodynamics, and calculus."
+        },
+        {
+          "stage": "Undergraduate",
+          "degree": "B.Tech / B.E. in Mechanical Engineering",
+          "description": "4-year engineering curriculum covering kinematics, machine design, fluid mechanics, and automation."
+        }
+      ],
+      "dimension_weights": { "R": 95, "I": 75, "A": 30, "S": 20, "E": 40, "C": 60 },
+      "source_url": "https://www.aicte-india.org",
+      "status": "draft",
+      "exam_codes": ["JEE_MAIN", "JEE_ADVANCED", "GATE"],
+      "college_names": ["Indian Institute of Technology Bombay", "Indian Institute of Technology Madras"],
+      "course_codes": ["BTECH_MECH"],
+      "certificate_codes": ["CSWP_SOLIDWORKS"],
+      "internship_codes": ["MECHANICAL_INTERN"],
+      "related_career_codes": ["SOFTWARE_DEVELOPER"]
+    }
+  ]
+}

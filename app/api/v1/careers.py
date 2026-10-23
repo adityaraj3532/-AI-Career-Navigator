@@ -1,0 +1,53 @@
+from typing import Annotated, Optional
+from uuid import UUID
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_optional_current_user
+from app.core.database import get_db
+from app.models.user import User
+from app.schemas.career import CareerDetailResponse, CareersListResponse
+from app.services.career_service import CareerService
+
+router = APIRouter(prefix="/careers", tags=["Career Catalog"])
+
+
+@router.get(
+    "",
+    response_model=CareersListResponse,
+    summary="List careers with filtering, pagination, and optional student compatibility scores",
+)
+async def list_careers(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    cluster: Optional[str] = Query(None, description="Filter by career cluster"),
+    demand: Optional[str] = Query(None, description="Filter by industry demand level (very_high, high, moderate, steady)"),
+    min_salary: Optional[int] = Query(None, description="Minimum salary in INR per year"),
+    max_salary: Optional[int] = Query(None, description="Maximum salary in INR per year"),
+    page: int = Query(1, ge=1, description="Page number (starts at 1)"),
+    page_size: int = Query(20, ge=1, le=50, description="Items per page (max 50)"),
+) -> CareersListResponse:
+    service = CareerService(session)
+    return await service.list_careers(
+        user=current_user,
+        cluster=cluster,
+        demand=demand,
+        min_salary=min_salary,
+        max_salary=max_salary,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get(
+    "/{career_id}",
+    response_model=CareerDetailResponse,
+    summary="Get full career details with eager-loaded exams, colleges, courses, certificates, internships, and related careers",
+)
+async def get_career_detail(
+    career_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+) -> CareerDetailResponse:
+    service = CareerService(session)
+    return await service.get_career_detail(career_id=career_id, user=current_user)

@@ -4,58 +4,51 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
-## Session: 2026-10-23 (Antigravity) – Assessment Engine Stage 2 (Scoring, Career Ranking & Immutable Results)
+## Session: 2026-10-23 (Antigravity) – Career Catalog Step 1a (Normalized Tables, Seeding & Exploration Endpoints)
 
 ### Done
 - **Data Models & Migration**:
-  - Created `Career` model (`app/models/career.py`) with `code`, `title`, `cluster`, `overview`, `status` (`draft`/`verified`), `source_url`, `dimension_weights` (JSONB, 0-100 RIASEC scale), `reviewer`, `verified_at`.
-  - Created `AssessmentResult` model (`app/models/assessment.py`) with `user_id`, `attempt_id`, `assessment_version_id`, `version`, `dimension_scores` (JSONB), `holland_code` (e.g. "IAS"), `holland_code_label`, `traits` (JSONB), `skills` (JSONB), `recommended_streams` (JSONB, optional), `career_suggestions` (JSONB), `ai_explanation`, `disclaimer_note`, and `UniqueConstraint("user_id", "version", name="uq_user_assessment_result_version")`.
-  - Authored Alembic migration `alembic/versions/003_create_careers_and_assessment_results.py`.
-- **Seeding & Career Verification CLI**:
-  - Seeded 8 diverse draft careers in `app/data/seed/careers.json` with documented 0-100 RIASEC dimension profiles.
-  - Built idempotent career seeder `scripts/seed_careers.py`.
-  - Built verification CLI `scripts/verify_career.py` (`--code`, `--id`, or `--all`, with mandatory `--reviewer` and automatic timestamp recording).
-  - Added `ALLOW_DRAFT_CAREERS: bool = False` to `app/core/config.py` (prohibiting drafts in production).
-- **Pure-Function Deterministic Scoring & Similarity Engine (`app/services/scoring_service.py`)**:
-  - `compute_riasec_scores`: Reverse scoring inversion (`6 - raw`), raw-to-percentile normalization `((raw_sum - 5) / 20) * 100`, handling dimension name normalization.
-  - `derive_holland_code`: Top-3 Holland code derivation with canonical RIASEC tie-breaking (`R -> I -> A -> S -> E -> C`).
-  - `derive_traits_and_skills`: Deterministic mapping of vocational strengths and competencies.
-  - `calculate_career_similarity`: Euclidean vector distance in 6D $[0, 100]^6$ normalized to $0.0-1.0$.
-  - `rank_careers`: Mathematical ranking with deterministic tie-break: similarity score descending, title ascending.
-  - `map_streams_for_grade_11_12`: Academic stream mapping (Science PCM/PCB, Commerce with Math, Humanities) returned before careers for `class_11_12` students.
-- **LLM Gateway Integration & Strict AI Boundary**:
-  - Authored prompt template `app/llm/prompts/assessment_explanation_v1.txt`.
-  - AI receives **only numbers and career catalog summaries** (zero user name, email, or free text).
-  - `post_validator` checks that every career ID referenced in AI output exists in the code-chosen top-3 list.
-  - Fallback factory provides strongly typed deterministic narrative and reasons if AI fails or references unauthorized IDs.
-- **Service & Endpoints**:
-  - `POST /v1/assessment/submit`: Idempotent submission, validates all 30 questions answered (returning 400 with missing questions list otherwise), handles concurrency safely, saves immutable result version.
-  - `GET /v1/assessment/results/latest`: Retrieves student's latest assessment result.
-  - `GET /v1/assessment/results`: Retrieves all historical assessment versions for the authenticated student.
-  - `GET /v1/assessment/results/{result_id}`: Retrieves specific result enforcing strict tenant ownership (returns 404 for unauthorized users).
+  - Altered `careers` table (`app/models/career.py`):
+    - Added `aliases` (`ARRAY(String(128))`), `description` (`Text`), `day_in_life` (`Text`).
+    - Added `salary_ranges` (`JSONB`, integers in INR per year `{min, max}` for `entry`/`mid`/`senior`, labelled approximate with `as_of_year` and `source_url`).
+    - Added `demand` (`String(32)`, indexed), `required_skills` (`JSONB`), `education_paths` (`JSONB`), `last_verified_at` (`DateTime(timezone=True)`).
+  - Created normalized entity models:
+    - `Exam`: `code`, `name`, `description`, `conducting_body`, `exam_level`, `registration_url`, `source_url`, `status`, `reviewer`, `last_verified_at`.
+    - `College`: `name`, `location` (`JSONB`), `official_url`, `fees` (`JSONB`, null by default), `cutoffs` (`JSONB`, null by default), `nirf_rank` (`JSONB`, null by default), `source_url`, `status`, `reviewer`, `last_verified_at`.
+    - `Course`: `code`, `title`, `degree_level`, `duration`, `description`, `source_url`, `status`, `reviewer`, `last_verified_at`.
+    - `Certificate`: `code`, `name`, `issuing_organization`, `description`, `url`, `source_url`, `status`, `reviewer`, `last_verified_at`.
+    - `Internship`: `code`, `title`, `domain`, `stipend_range` (`JSONB`), `duration_months`, `locations` (`JSONB`), `description`, `source_url`, `status`, `reviewer`, `last_verified_at`.
+  - Created association tables with composite PKs, `ON DELETE CASCADE`, and indexes on both sides:
+    - `career_exams`, `career_colleges`, `career_courses`, `career_certificates`, `career_internships`, `college_exams`.
+    - `career_related`: Self-referencing association guarded by `CheckConstraint("career_id != related_career_id", name="ck_career_not_self_related")`.
+  - Configured `lazy="selectin"` on all secondary relationships, guaranteeing bounded $O(1)$ query execution and eliminating $N+1$ query explosion on detail queries.
+  - Authored migration `alembic/versions/004_create_career_catalog_tables.py` (tested both upgrade and downgrade SQL compilation).
+- **Authoritative Catalog Seed (`app/data/seed/career_catalog.json`) & Idempotent Seeder (`scripts/seed_career_catalog.py`)**:
+  - Seeded 8 flagship careers fully: Software Development Engineer (SDE), Data Analyst, AI/ML Engineer, UI/UX Designer, Doctor (MBBS/Specialist), Chartered Accountant (CA), Civil Services (IAS/IPS/IFS), Mechanical Engineer.
+  - Linked to real Indian exams (JEE Main/Adv, NEET-UG, CA Foundation, UPSC CSE, GATE, UCEED), top colleges (IIT Bombay, IIT Madras, AIIMS New Delhi, ICAI, NID Ahmedabad, St. Stephen's), courses, certificates, and internships.
+  - All seeded records set to `status="draft"` with authoritative `source_url`. College fees, cutoffs, and NIRF rank stay null until verified with a reporting year.
+- **Verification CLI (`scripts/verify_catalog.py` & `scripts/verify_career.py`)**:
+  - Extended CLI to verify `career`, `exam`, `college`, `course`, `certificate`, `internship`, or `all` records (sets `status="verified"`, `reviewer`, `last_verified_at`).
+  - Enforced verification gate: only verified records appear in API responses unless `ENVIRONMENT=development` and `ALLOW_DRAFT_CAREERS=true`.
+- **API Endpoints (`app/api/v1/careers.py`) & Service Layer (`app/services/career_service.py`)**:
+  - `GET /v1/careers`: Supports filters (`cluster`, `demand`, `min_salary`, `max_salary`), pagination (`page_size` max 50, `page`, `total_count`, `total_pages`), stable ordering (`title asc, id asc`), and optional student compatibility scoring.
+  - `GET /v1/careers/{id}`: Returns full career detail with eager-loaded exams, colleges, courses, certificates, internships, and related careers.
+  - Optional Auth: If caller is authenticated and has an assessment result, real-time compatibility score (integer 0–100) is computed and attached; otherwise returns `null`.
 - **Testing & Verification**:
-  - Authored 14 unit and integration tests in `tests/test_assessment_stage2.py` covering:
-    - 6 fixed scoring math cases (all 1s, all 5s, neutral 3s, distinct high dimensions, reverse scoring precision, canonical tie-breaking).
-    - Career vector similarity exact matching and deterministic tie-breaking.
-    - Grade 11/12 stream mapping.
-    - Missing answers 400 response with missing question IDs list.
-    - Full end-to-end submission, idempotent double submit, retake version 2 creation, all results list.
-    - Draft careers exclusion when `ALLOW_DRAFT_CAREERS=false`.
-    - AI unknown career ID rejection activating deterministic fallback.
-    - Strict multi-tenant ownership isolation (404 on cross-user attempt/result access).
-  - Full test suite execution: **46 passed, 1 skipped** (live Gemini smoke test). Zero ruff lint errors.
+  - Authored 8 tests in `tests/test_career_catalog.py` covering draft filtering, pagination bounds, cluster/demand/salary filtering, eager-loading structure, optional auth compatibility scoring, idempotent seeder, and migration 004 upgrade/downgrade.
+  - Full test suite execution: **54 passed, 1 skipped** (live Gemini smoke test). Zero ruff lint errors.
 - **Documentation**:
-  - Added ADR-010 in `docs/DECISIONS.md`.
+  - Added ADR-011 in `docs/DECISIONS.md`.
 
 ### In progress
-- Assessment Engine Stage 2 complete and verified. Awaiting user review before proceeding to Q&A (`/v1/assessment/results/{id}/ask`) and career choice endpoints.
+- Step 1a complete. Awaiting user review before Step 1b (pg_trgm extension, GIN indexes, `GET /v1/careers/search` with typo-tolerance and ranked aliases).
 
 ### Broken or risky
 - None. All test suites pass cleanly.
 
-### Next (Q&A & Career Choice Step upon approval)
-- Add `POST /v1/assessment/results/{id}/ask` with Pydantic schema `{answer, referenced_career_ids, in_scope: bool}`, question max 500 chars, delimiter tag stripping, last 6 messages sliding window, max 50 messages per result thread, per-user daily rate limiting.
-- Add "choose this career" endpoint setting the student's preferred career.
+### Next (Step 1b upon approval)
+- Add PostgreSQL `pg_trgm` extension and GIN trigram indexes on `title`, `overview`, and `aliases`.
+- Build `GET /v1/careers/search?q=` (query max 60 chars, ranking name > alias > trigram similarity, single-pass compatibility scoring).
 
 ### Do not touch
 - `docs/CONSTRAINTS.md`: Core product constraints are locked.
@@ -65,22 +58,10 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
-## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – Assessment Engine Stage 1 (Questions, Drafts & Resuming)
+## Session: 2026-10-23 (Antigravity) – Assessment Engine Stage 2 (Scoring, Career Ranking & Immutable Results)
 
 ### Done
-- Implemented Stage 1 models in `app/models/assessment.py`:
-  - `AssessmentVersion` (`id` [UUID], `version_number` [int, unique], `title`, `description`, `is_active`).
-  - `AssessmentQuestion` (`id` [UUID], `assessment_version_id` [FK cascade], `question_order`, `text`, `dimension`, `reverse_scored`, `is_active`).
-  - `AssessmentAttempt` (`id` [UUID], `user_id` [FK cascade], `assessment_version_id` [FK restrict], `status` ['draft'/'submitted'], `started_at`, `submitted_at`).
-  - `AssessmentAnswer` (`id` [UUID], `attempt_id` [FK cascade], `question_id` [FK cascade], `value` [1-5], `uq_attempt_question_answer` UniqueConstraint).
-- Authored 30 original RIASEC-dimension questions (5 per dimension across Realistic, Investigative, Artistic, Social, Enterprising, Conventional, including reverse-scored items) in `app/data/seed/assessment_questions.json` under CC0 Public Domain dedication without copying proprietary question banks.
-- Built idempotent database seeding script in `scripts/seed_assessment.py` to seed or update versioned assessment questions.
-- Generated Alembic database migration `alembic/versions/002_create_assessment_tables.py` with upgrade and downgrade schema transitions.
-- Implemented `AssessmentRepository` (`app/repositories/assessment_repository.py`) and `AssessmentService` (`app/services/assessment_service.py`).
-- Implemented authenticated endpoints in `app/api/v1/assessment.py`:
-  - `GET /v1/assessment/questions`: Returns ordered active 30 questions with Likert scale descriptions.
-  - `GET /v1/assessment/attempt`: Resumes or initializes active draft attempt.
-  - `POST /v1/assessment/answers` & `PUT /v1/assessment/answers`: Upserts draft answers and saves progress (validating 1-5 range, version integrity, and `extra="forbid"`).
-  - `GET /v1/assessment/attempts/{attempt_id}`: Strict multi-tenant attempt lookup returning 404 for unauthorized users.
-- Authored comprehensive test suite in `tests/test_assessment.py` (ordered questions, draft save/resume, value bounds 1-5, invalid question rejection, ownership isolation). Real pytest run: 32 passed, 1 skipped (live Gemini smoke test).
-- Added ADR-009 in `docs/DECISIONS.md` documenting why questions are versioned and why code ranks careers instead of AI.
+- **Data Models & Migration**:
+  - Created `Career` model (`app/models/career.py`) with `code`, `title`, `cluster`, `overview`, `status` (`draft`/`verified`), `source_url`, `dimension_weights` (JSONB, 0-100 RIASEC scale), `reviewer`, `verified_at`.
+  - Created `AssessmentResult` model (`app/models/assessment.py`) with `user_id`, `attempt_id`, `assessment_version_id`, `version`, `dimension_scores` (JSONB), `holland_code` (e.g. "IAS"), `holland_code_label`, `traits` (JSONB), `skills` (JSONB), `recommended_streams` (JSONB, optional), `career_suggestions` (JSONB), `ai_explanation`, `disclaimer_note`, and `UniqueConstraint("user_id", "version", name="uq_user_assessment_result_version")`.
+  - Authored Alembic migration `alembic/versions/003_create_careers_and_assessment_results.py`.
