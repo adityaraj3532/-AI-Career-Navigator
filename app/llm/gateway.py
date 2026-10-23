@@ -55,6 +55,23 @@ class LLMGateway:
         settings = get_settings()
         self.model_name = getattr(self.provider, "model_name", settings.GEMINI_MODEL)
 
+    # Known untrusted input variable names that must be treated as untrusted even if
+    # passed in legacy `inputs` dictionary
+    KNOWN_UNTRUSTED_KEYS = {
+        "candidate_answer",
+        "user_query",
+        "question",
+        "user_facts",
+        "primary_goal",
+        "prior_experience",
+        "target_role",
+        "user_profile_bio",
+        "notes",
+        "message",
+        "query",
+        "feedback",
+    }
+
     async def execute_prompt(
         self,
         prompt_name: str,
@@ -63,17 +80,24 @@ class LLMGateway:
         fallback_factory: Callable[[], T],
         system_variables: Optional[Dict[str, Any]] = None,
         user_inputs: Optional[Dict[str, str]] = None,
+        untrusted_inputs: Optional[Dict[str, Any]] = None,
         post_validator: Optional[Callable[[T], bool]] = None,
     ) -> GatewayResponse[T]:
         start_time = time.monotonic()
         attempts = 0
         error_type: Optional[str] = None
 
+        merged_untrusted = {}
+        if user_inputs:
+            merged_untrusted.update(user_inputs)
+        if untrusted_inputs:
+            merged_untrusted.update(untrusted_inputs)
+
         rendered_prompt = self.prompt_manager.render(
             name=prompt_name,
             version=prompt_version,
             system_variables=system_variables,
-            user_inputs=user_inputs,
+            untrusted_inputs=merged_untrusted,
         )
 
         async def _call_provider_with_budget() -> str:
@@ -200,19 +224,34 @@ class LLMGateway:
     async def generate(
         self,
         prompt_name: str,
-        inputs: Dict[str, Any],
-        output_schema: Type[T],
-        fallback: T,
+        inputs: Optional[Dict[str, Any]] = None,
+        output_schema: Optional[Type[T]] = None,
+        fallback: Optional[T] = None,
         version: int = 1,
         post_validator: Optional[Callable[[T], bool]] = None,
+        system_variables: Optional[Dict[str, Any]] = None,
+        untrusted_inputs: Optional[Dict[str, Any]] = None,
     ) -> GatewayResponse[T]:
         """Convenience method to execute a prompt template by name and schema with fallback."""
+        sys_vars: Dict[str, Any] = dict(system_variables or {})
+        untrusted: Dict[str, Any] = dict(untrusted_inputs or {})
+
+        if inputs:
+            for k, v in inputs.items():
+                if k in self.KNOWN_UNTRUSTED_KEYS:
+                    if k not in untrusted:
+                        untrusted[k] = v
+                else:
+                    if k not in sys_vars:
+                        sys_vars[k] = v
+
         return await self.execute_prompt(
             prompt_name=prompt_name,
             prompt_version=version,
             schema=output_schema,
             fallback_factory=lambda: fallback,
-            user_inputs={k: str(v) for k, v in inputs.items()},
+            system_variables=sys_vars,
+            untrusted_inputs=untrusted,
             post_validator=post_validator,
         )
 
