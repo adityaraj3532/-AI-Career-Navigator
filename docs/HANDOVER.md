@@ -4,6 +4,74 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Contextual AI Chat (Step 1a: Context Modes, Safety Pre-Check, Non-Streaming Chat, Message Ledger & History)
+
+### Done
+- **Database Schema & Migration (`alembic/versions/015_create_ai_chat.py`)**:
+  - Confirmed single linear Alembic head at `014_create_planner_tasks` before authoring migration `015_create_ai_chat.py`. Verified single head at `015_create_ai_chat (head)`.
+  - Created `chat_conversations` table:
+    - Columns: `id`, `user_id` (CASCADE), `mode` (`career`, `roadmap`, `skills`, `interview`; fixed at creation), `career_id` (nullable, required for career mode), `title` (max 128, generated deterministically as `"{Mode} - {YYYY-MM-DD}"`), `created_at`, `updated_at`.
+    - Check constraint `ck_chat_conversations_mode`: mode IN ('career', 'roadmap', 'skills', 'interview').
+    - Check constraint `ck_chat_conversations_career_id_mode`: `(mode = 'career' AND career_id IS NOT NULL) OR (mode <> 'career' AND career_id IS NULL)`.
+    - Foreign key cascade on `users.id` and `careers.id`.
+    - Enforced cap of max 20 conversations per user.
+  - Created `chat_messages` table:
+    - Columns: `id`, `conversation_id` (CASCADE), `seq` (integer, starts at 1), `client_message_id` (nullable UUID), `role` (`user`, `assistant`), `content` (text, max 1000 characters for user inputs), `sources` (JSONB list of cited records), `ai_status` (`ok`, `fallback`, `safety`), `created_at`.
+    - Check constraints: `ck_chat_messages_role`: role IN ('user', 'assistant'); `ck_chat_messages_ai_status`: ai_status IN ('ok', 'fallback', 'safety').
+    - Unique constraints: `uq_chat_messages_conv_seq` on `(conversation_id, seq)` and partial unique index `uq_chat_messages_conv_client_msg_id` on `(conversation_id, client_message_id)` WHERE `client_message_id IS NOT NULL`.
+    - Enforced cap of max 50 messages per conversation.
+- **Rule-Based Safety Pre-Check (`app/core/safety_config.py`)**:
+  - Compiled regex pattern matching acute distress, suicidal ideation, or self-harm keywords across English and Hinglish phrases (`"kill myself"`, `"want to die"`, `"marne ka man kar raha hai"`, `"end it all"`, etc.).
+  - Configured `HELPLINE_CONFIG_PLACEHOLDER` and supportive resources message (`SUPPORTIVE_SAFETY_MESSAGE`).
+  - Pre-check bypasses AI Gateway completely, returns supportive response immediately, tags message with `ai_status="safety"`, and records **zero punitive or clinical flags on the user's profile**.
+- **Context Builders & Prompt Injection Defense (`app/services/chat_context_service.py`)**:
+  - Strict data minimization: Student name, email, other users' IDs, and unvetted free-text fields are NEVER sent to LLM prompts.
+  - Tag stripping: Delimiter tags (`<system>`, `<user_query>`, `<context_data>`, `</...>`) and prompt manipulation keywords are sanitized and stripped from all context text.
+  - Mode Context Builders:
+    - `career`: Grounds strictly on verified career catalog data (overview, cluster, salary ranges, exams, colleges). Rejects unverified careers with HTTP 404.
+    - `roadmap`: Checks active roadmap; if no active roadmap exists, safely returns `NO_ROADMAP_ANSWER` immediately without calling LLM Gateway.
+    - `skills`: Passes assessed vs self-reported skill evidence, test mastery levels, and weak subtopics.
+    - `interview`: Passes rubric dimension scores and covered key-point labels. **NEVER passes raw candidate answer text** to safeguard privacy.
+  - Post-Validator: Validates that `used_record_ids` returned by LLM is a strict mathematical subset of retrieved database records. If unknown IDs appear, response gracefully falls back to `FIXED_FALLBACK_ANSWER`. Code builds source citations (`ChatSource`) directly from DB registry IDs.
+- **Transaction Isolation & Idempotency (`app/services/chat_service.py`)**:
+  - 3-Phase Execution:
+    1. Phase 1: Context retrieval, rate limit check, conversation lookup/creation, committed and closed before invoking external network I/O.
+    2. Phase 2: Safety screening and LLM Gateway inference without an open database transaction lock.
+    3. Phase 3: Persisting user and assistant messages in a fresh database transaction.
+  - Idempotency guard: If a duplicate `client_message_id` is received within the conversation, the existing assistant response is immediately returned without making a 2nd LLM call.
+  - Privacy invariant: Zero logging of user message content across server/application logs.
+- **Rate Limiting (`app/services/chat_rate_limiter.py`)**:
+  - Redis-backed rate limiter (30 requests/hour, 100 requests/day).
+  - Stricter in-memory sliding-window fallback (15 requests/hour) with 0.5s timeout safeguard if Redis is offline.
+- **Endpoints (`app/api/v1/chat.py`)**:
+  - `POST /v1/ai/chat`: Non-streaming contextual chat endpoint.
+  - `GET /v1/ai/conversations`: List user's conversations with message counts.
+  - `GET /v1/ai/conversations/{id}`: Detailed conversation history. Enforces strict user ownership (returns 404 if conversation belongs to another user).
+  - `DELETE /v1/ai/conversations/{id}`: Deletes conversation and cascades messages. Returns HTTP 204.
+- **Testing & QA**:
+  - 21 comprehensive unit and API integration tests in `tests/test_ai_chat_step1a.py` and `tests/test_ai_chat_api.py`.
+  - Full test suite: **230 passed, 1 skipped**, 0 failures.
+  - Code hygiene: `ruff check` on all chat files passed with 0 errors.
+
+### Active Invariants
+- `mode` is immutable after conversation creation.
+- Check constraints enforce valid modes and message roles.
+- Strict limit of 20 conversations per user and 50 messages per conversation.
+- Foreign conversations return HTTP 404.
+- All request schemas enforce `model_config = ConfigDict(extra="forbid")`.
+- Safety pre-check bypasses AI and sets `ai_status="safety"` without storing flags on the user profile.
+- Zero logging of user message content.
+
+### Pending / Next Items
+- **Chat Step 1b**: Suggested actions chosen from a code-built candidate list (requires Planner endpoints and deterministic next-actions function).
+- **Chat Step 1c**: Streaming support (SSE / chunked transfer).
+- **Planner Step 1b**: Build `GET /v1/planner?date=`, `POST /v1/planner/tasks`, `PATCH /v1/planner/tasks/{id}`, and shared `complete_roadmap_item` function.
+- **Planner Step 1c**: Build `GET /v1/ai/next-actions`.
+- **Planner Step 2**: Pluggable notification channel + reminder dispatcher.
+- **Portfolio Step 3**: User decision pending on frontend print stylesheet vs maintained backend library for one-page resume export.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Study Planner (Step 1a: Core Data Model, Constraints & Pure Scheduling Engine)
 
 ### Done

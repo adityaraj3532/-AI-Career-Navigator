@@ -1476,6 +1476,11 @@ class MockSession:
         if table_name and table_name in self.storage:
             self.storage[table_name][instance.id] = instance
 
+    async def delete(self, instance):
+        table_name = getattr(instance, "__tablename__", None)
+        if table_name and table_name in self.storage:
+            self.storage[table_name].pop(instance.id, None)
+
     async def execute(self, stmt):
         class MockResult:
             def __init__(self, val):
@@ -1579,6 +1584,9 @@ async def test_storage():
         "milestone_rules": {},
         "user_milestones": {},
         "weekly_goals": {},
+        "planner_tasks": {},
+        "chat_conversations": {},
+        "chat_messages": {},
     }
 
     # Pre-seed assessment questions

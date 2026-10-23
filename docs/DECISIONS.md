@@ -534,6 +534,46 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Complex calendar sync protocols (e.g. Google Calendar / iCal bidirectional sync) require external ID mappings.
 
+---
+
+## ADR-024: Contextual AI Chat Architecture, Grounding, and Safety (Step 1a)
+
+- **Options Considered**:
+  - Allowing LLM to generate arbitrary citation text/links vs Backend code generating citations from a verified DB registry and strictly validating LLM `used_record_ids` as a subset of retrieved records.
+  - Holding database transaction open during LLM Gateway network calls vs Closing DB transaction before LLM execution and writing chat messages in a fresh transaction.
+  - Implementing SSE streaming in Step 1a vs Standard JSON response in Step 1a with streaming deferred to Step 1c.
+  - Storing user distress flags on the profile upon acute distress triggers vs Ephemeral crisis intervention without user profiling or punitive flags.
+- **Choice**: **Code-Enforced Citation Subset Validation, 3-Phase Transaction Isolation, Non-Streaming Foundation (Streaming in 1c), and Zero-Profile-Flag Safety Pre-Check**
+- **Reason**:
+  - **Why Code Builds Citations from Strict Subset Validation**:
+    - LLMs are prone to hallucinating citations, synthesizing non-existent URLs, or fabricating database record IDs.
+    - In our architecture, the backend retrieves verified database records (careers, exams, colleges, roadmap items, test scores), builds an internal record registry mapping UUIDs to verified metadata, and feeds only record IDs and sanitized text to the prompt.
+    - The LLM returns a structured JSON payload containing `used_record_ids`. Python code validates that `used_record_ids` is a strict mathematical subset of the retrieved registry. If any unrecognized ID is present or the JSON is invalid, code automatically falls back to `FIXED_FALLBACK_ANSWER`.
+    - Citation objects (`ChatSource`: `type`, `title`, `url`) attached to the assistant message are constructed purely by backend code from the database registry—never by the LLM.
+  - **Why Database Transactions Close Before LLM Gateway Call**:
+    - External LLM inference calls can take several seconds due to network latency and model compute.
+    - Holding a PostgreSQL database transaction open across external network I/O exhausts database connection pools, holds read/write locks, and causes cascading timeouts under load.
+    - We structure execution in 3 discrete phases:
+      1. Phase 1: Context retrieval, rate limit check, and conversation creation within an initial transaction, which is committed and closed immediately.
+      2. Phase 2: Rule-based safety screening and LLM Gateway execution without an open database transaction.
+      3. Phase 3: Persisting user and assistant messages in a fresh database transaction.
+  - **Why Streaming is Deferred to Step 1c**:
+    - Step 1a establishes the foundational persistence schema (`chat_conversations`, `chat_messages`), prompt sanitization, mode context builders, rate limiting, and end-to-end conversation history endpoints (`GET /v1/ai/conversations`, `GET /v1/ai/conversations/{id}`, `DELETE /v1/ai/conversations/{id}`).
+    - Establishing solid database schemas, idempotency guards (`client_message_id`), and safety pre-checks first ensures streaming (SSE/chunked transfer) can be layered cleanly on top without risking partial message writes or concurrency leaks.
+  - **Why Safety Pre-Check Leaves Zero Flags on User Profile**:
+    - Acute distress or self-harm keywords (English and Hinglish) trigger an immediate supportive crisis response with official helpline contact info (`SUPPORTIVE_SAFETY_MESSAGE`).
+    - The AI call is completely bypassed, and `ai_status` is marked as `"safety"`.
+    - No punitive or clinical flags are written to `StudentProfile`. Privacy regulations and ethical student safeguarding dictate that distress detection is strictly an immediate crisis intervention mechanism, not a profiling or disciplinary tracking mechanism.
+  - **Data Minimization & Privacy Invariant**:
+    - Context builders explicitly omit student names, emails, and unvetted free-text fields (e.g. project descriptions, notes).
+    - Interview mode context passes only numerical rubric scores and covered key-point labels—candidate raw answer text is NEVER included in LLM context.
+    - Zero logging of user message content across server and application logs.
+- **Trade-off**:
+  - LLM hallucinating an invalid record ID causes a fallback response; however, this guarantees 100% citation truthfulness and prevents student misinformation.
+- **Revisit if**:
+  - Real-time websocket or SSE requirements in Step 1c necessitate event-driven session locking.
+
+
 
 
 

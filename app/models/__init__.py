@@ -61,6 +61,7 @@ from app.models.progress import (
     WeeklyGoal,
 )
 from app.models.planner import PlannerTask
+from app.models.chat import ChatConversation, ChatMessage
 
 __all__ = [
     "User",
@@ -113,4 +114,6 @@ __all__ = [
     "UserMilestone",
     "WeeklyGoal",
     "PlannerTask",
+    "ChatConversation",
+    "ChatMessage",
 ]
