@@ -136,9 +136,25 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Reason**:
   - **UUIDs**: Prevent ID enumeration and resource scraping across multi-tenant endpoints; client cannot guess another student's user ID.
   - **PyJWT**: Actively maintained, strictly RFC 7519 compliant, and enforces unambiguous algorithm pinning (`HS256`), eliminating `alg: none` header bypass attacks.
-  - **Opaque Refresh Tokens with SHA-256 Hashing**: Prevents token theft via database inspection (tokens in DB are one-way hashed). Allows instantaneous server-side revocation upon logout or password change.
+  - **Opaque Refresh Tokens with SHA-256 Hashing**: Prevents token theft via database inspection. Allows instantaneous server-side revocation upon logout or password change.
   - **Token Family Reuse Detection**: Each token generation chain shares a `family_id`. If an already-used or revoked refresh token is presented (indicating a replay or stolen token), the gateway immediately revokes all tokens across the entire family, protecting the user account.
 - **Trade-off**:
   - Requires database roundtrips during token rotation (mitigated by indexed SHA-256 hash lookup).
 - **Revisit if**:
   - Highly distributed edge deployments strictly require zero-datastore token verification without revocation requirements.
+
+---
+
+## ADR-009: Assessment Architecture – Versioned Question Banks & Deterministic Career Ranking
+
+- **Options Considered**:
+  - Mutable questions without versioning vs Immutable versioned question sets (`assessment_versions`).
+  - LLM selects and ranks recommended careers vs Code computes similarity rankings from verified database vectors.
+- **Choice**: **Versioned Question Banks (`assessment_versions`) + Deterministic Code-Ranked Careers**
+- **Reason**:
+  - **Versioned Questions**: Question inventories evolve over time as psychometric phrasing is refined. Versioning guarantees that historical attempts and answer records remain permanently tethered to the exact questions the student saw, enabling scientifically valid retake comparisons over years.
+  - **Deterministic Code Ranking**: Careers are ranked mathematically via vector distance (e.g. Euclidean / Manhattan distance between student's normalized RIASEC scores and verified career profiles in our database). The AI is strictly barred from choosing or ranking careers; it is invoked solely to explain and personalize the code-selected careers. This completely eradicates hallucinated career IDs and guarantees 100% reproducible, auditable recommendations.
+- **Trade-off**:
+  - Requires maintaining explicit Holland affinity weights per career in database seed tables.
+- **Revisit if**:
+  - Never. Career matchmaking integrity requires auditability and strict relational foreign key verification.

@@ -4,44 +4,46 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
-## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – Auth Step 1 (Users & Token Rotation)
+## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – Assessment Engine Stage 1 (Questions, Drafts & Resuming)
 
 ### Done
-- Replaced `python-jose` with `PyJWT==2.15.1`, `passlib` with standalone `bcrypt==5.0.0`, and updated `python-multipart==0.0.32` (all pinned and verified >14 days stable). Updated `docs/DEPENDENCIES.md`.
-- Implemented `User` model with PostgreSQL `UUID` primary key, normalized lowercase unique email, bcrypt password hash, strict `student` default role, and `education_level` (`app/models/user.py`).
-- Implemented `RefreshToken` model with UUID primary keys, SHA-256 hashed storage, `family_id` tracking, and timestamps (`app/models/auth.py`).
-- Created initial database migration `alembic/versions/001_create_users_and_refresh_tokens.py` with upgrade and downgrade logic for PostgreSQL.
-- Implemented security primitives in `app/core/security.py`:
-  - Standalone `bcrypt` hashing with 72-byte max length enforcement.
-  - Dummy bcrypt hash verification on non-existent emails to neutralize timing attacks on login.
-  - Strict 15-minute `PyJWT` access token issuance with algorithm pinned to `HS256` (rejecting `none` and all other algs).
-  - Opaque cryptographically random refresh tokens and SHA-256 hashing.
-- Implemented `UserRepository` and `TokenRepository` (`app/repositories/`).
-- Implemented `AuthService` (`app/services/auth_service.py`):
-  - Signup (strictly `student` role, `extra="forbid"` on schemas).
-  - Login (identical error response for unknown email and wrong password with dummy hash timing defense).
-  - Refresh token rotation on every use with **Token Family Reuse Detection** (revokes entire family if an already-used or revoked token is re-submitted).
-  - Logout and Logout-All (revoking active user refresh sessions).
-  - Change-Password (verifies current password, updates hash, revokes all user sessions).
-- Created CLI admin provisioning script (`scripts/create_admin.py`).
-- Configured ARQ scheduled token purge task (`delete_expired_tokens_task` running daily at 03:00 UTC).
-- Implemented strict `get_current_user` dependency in `app/api/deps.py` (Bearer JWT only, zero test-user fallback headers).
-- Created comprehensive test suite in `tests/test_auth.py` (16 test cases). Real test run: 28 passed, 1 skipped (Gemini live key).
-- Documented architectural decisions in `docs/DECISIONS.md` (ADR-008: UUIDs, PyJWT, Opaque Tokens, and Family Reuse Detection).
+- Implemented Stage 1 models in `app/models/assessment.py`:
+  - `AssessmentVersion` (`id` [UUID], `version_number` [int, unique], `title`, `description`, `is_active`).
+  - `AssessmentQuestion` (`id` [UUID], `assessment_version_id` [FK cascade], `question_order`, `text`, `dimension`, `reverse_scored`, `is_active`).
+  - `AssessmentAttempt` (`id` [UUID], `user_id` [FK cascade], `assessment_version_id` [FK restrict], `status` ['draft'/'submitted'], `started_at`, `submitted_at`).
+  - `AssessmentAnswer` (`id` [UUID], `attempt_id` [FK cascade], `question_id` [FK cascade], `value` [1-5], `uq_attempt_question_answer` UniqueConstraint).
+- Authored 30 original RIASEC-dimension questions (5 per dimension across Realistic, Investigative, Artistic, Social, Enterprising, Conventional, including reverse-scored items) in `app/data/seed/assessment_questions.json` under CC0 Public Domain dedication without copying proprietary question banks.
+- Built idempotent database seeding script in `scripts/seed_assessment.py` to seed or update versioned assessment questions.
+- Generated Alembic database migration `alembic/versions/002_create_assessment_tables.py` with upgrade and downgrade schema transitions.
+- Implemented `AssessmentRepository` (`app/repositories/assessment_repository.py`) and `AssessmentService` (`app/services/assessment_service.py`).
+- Implemented authenticated endpoints in `app/api/v1/assessment.py`:
+  - `GET /v1/assessment/questions`: Returns ordered active 30 questions with Likert scale descriptions.
+  - `GET /v1/assessment/attempt`: Resumes or initializes active draft attempt.
+  - `POST /v1/assessment/answers` & `PUT /v1/assessment/answers`: Upserts draft answers and saves progress (validating 1-5 range, version integrity, and `extra="forbid"`).
+  - `GET /v1/assessment/attempts/{attempt_id}`: Strict multi-tenant attempt lookup returning 404 for unauthorized users.
+- Authored comprehensive test suite in `tests/test_assessment.py` (ordered questions, draft save/resume, value bounds 1-5, invalid question rejection, ownership isolation). Real pytest run: 32 passed, 1 skipped (live Gemini smoke test).
+- Added ADR-009 in `docs/DECISIONS.md` documenting why questions are versioned and why code ranks careers instead of AI.
 
 ### In progress
-- Auth Step 1 complete. Awaiting review before proceeding to Auth Step 2 (Password reset with ARQ email queue, Redis login rate limiting with in-process fallback).
+- Assessment Stage 1 complete. Awaiting user review before Stage 2.
 
 ### Broken or risky
-- Local PostgreSQL service was offline on developer machine during session; unit & integration tests ran with test isolation repository double in `tests/conftest.py`. Real PostgreSQL is executed via `.github/workflows/ci.yml` service container.
+- None.
 
-### Next (Auth Step 2 upon approval)
-- Implement single-use 30-minute password reset tokens with SHA-256 hash storage, invalidating older outstanding tokens.
-- Implement ARQ email queuing for password reset delivery with identical timing/response for existent vs nonexistent emails.
-- Implement progressive Redis rate limiting on login (per IP and per email), signup, and reset requests, with strict in-process fallback if Redis is down.
-- Once Auth is fully completed, deliver the Student Profile domain and deterministic completeness scoring.
+### Next (Assessment Stage 2 upon approval)
+- Implement pure-function deterministic scoring:
+  - Reverse scoring handling for reverse-scored items.
+  - Per-dimension scores normalized 0–100%.
+  - Top-3 Holland code synthesis with documented tie-breaking rules.
+  - Require all 30 questions answered on submission (returning missing question IDs otherwise).
+- Implement minimal `careers` table (`id`, `name`, `status` [draft/verified], `source_url`, numeric dimension profile) and seed 8 draft careers.
+- Implement code-based career similarity ranking matching student vector to career vectors.
+- Implement Grade 11/12 stream mapping table returning recommended subjects/streams before careers.
+- Wire LLM Gateway for natural language explanation and personalized reasons per code-chosen career, with `post_validator` rejecting unverified career IDs.
+- Implement immutable `AssessmentResult` table with version 1, 2, 3... per user (`uq_user_assessment_version`), safe concurrency, and guidance disclaimer note.
+- Add comprehensive scoring math tests (6 cases: all 1s, all 5s, mixed, reverse-scored, tie), double submit idempotency, and retake version increments.
 
 ### Do not touch
 - `docs/CONSTRAINTS.md`: Core product constraints are locked.
-- Production auth policy: Bearer JWT only; no test-user headers anywhere in `app/`.
-- Strict schema policy: `extra="forbid"`, no `role` field in client requests.
+- Deterministic scoring rule: AI never calculates scores or ranks careers.
+- Question versioning integrity: answers must tether to their attempt's version.

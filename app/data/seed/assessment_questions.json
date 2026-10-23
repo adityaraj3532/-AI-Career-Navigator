@@ -1,0 +1,188 @@
+{
+  "source_note": "Original career navigation inventory authored for AI Career Navigator. Inspired by John L. Holland's RIASEC vocational framework (1959), adapted under CC0 Public Domain dedication without copying proprietary question banks.",
+  "version_number": 1,
+  "title": "Comprehensive RIASEC Career Interest Inventory",
+  "description": "A 30-item psychometric inventory assessing vocational interest dimensions: Realistic, Investigative, Artistic, Social, Enterprising, and Conventional on a 5-point Likert scale (1=Strongly Disagree, 5=Strongly Agree).",
+  "questions": [
+    {
+      "order": 1,
+      "text": "I enjoy assembling, repairing, or troubleshooting mechanical devices and electronic hardware.",
+      "dimension": "Realistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 2,
+      "text": "I prefer hands-on outdoor physical tasks rather than sitting at a desk all day.",
+      "dimension": "Realistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 3,
+      "text": "I like building physical prototypes, woodworking, or using tools to craft objects.",
+      "dimension": "Realistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 4,
+      "text": "I get satisfaction from understanding how engines, machinery, or electrical systems function.",
+      "dimension": "Realistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 5,
+      "text": "I strongly dislike practical DIY tasks that involve manual tools or physical construction.",
+      "dimension": "Realistic",
+      "reverse_scored": true
+    },
+    {
+      "order": 6,
+      "text": "I enjoy solving complex mathematical puzzles and examining statistical trends.",
+      "dimension": "Investigative",
+      "reverse_scored": false
+    },
+    {
+      "order": 7,
+      "text": "I find it fascinating to conduct experiments and test scientific theories systematically.",
+      "dimension": "Investigative",
+      "reverse_scored": false
+    },
+    {
+      "order": 8,
+      "text": "I like analyzing root causes of problems using empirical data and logical deductions.",
+      "dimension": "Investigative",
+      "reverse_scored": false
+    },
+    {
+      "order": 9,
+      "text": "I spend free time reading scientific research papers, technology deep-dives, or exploratory studies.",
+      "dimension": "Investigative",
+      "reverse_scored": false
+    },
+    {
+      "order": 10,
+      "text": "I get impatient when asked to analyze raw datasets or dive deeply into abstract academic theory.",
+      "dimension": "Investigative",
+      "reverse_scored": true
+    },
+    {
+      "order": 11,
+      "text": "I enjoy expressing ideas through visual design, digital media, creative writing, or music.",
+      "dimension": "Artistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 12,
+      "text": "I like brainstorming unconventional, imaginative solutions without rigid boundary rules.",
+      "dimension": "Artistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 13,
+      "text": "I value creative self-expression, color theory, and aesthetic polish in products and presentations.",
+      "dimension": "Artistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 14,
+      "text": "I enjoy designing intuitive user interfaces, digital graphics, or aesthetic layouts.",
+      "dimension": "Artistic",
+      "reverse_scored": false
+    },
+    {
+      "order": 15,
+      "text": "I prefer following strict standardized templates rather than inventing original creative styles.",
+      "dimension": "Artistic",
+      "reverse_scored": true
+    },
+    {
+      "order": 16,
+      "text": "I find fulfillment in mentoring, teaching, or coaching others to help them learn and succeed.",
+      "dimension": "Social",
+      "reverse_scored": false
+    },
+    {
+      "order": 17,
+      "text": "I enjoy resolving interpersonal conflicts and facilitating collaborative group discussions.",
+      "dimension": "Social",
+      "reverse_scored": false
+    },
+    {
+      "order": 18,
+      "text": "I am drawn to community service, peer counseling, or volunteering initiatives.",
+      "dimension": "Social",
+      "reverse_scored": false
+    },
+    {
+      "order": 19,
+      "text": "I actively listen when peers share personal challenges and offer empathetic guidance.",
+      "dimension": "Social",
+      "reverse_scored": false
+    },
+    {
+      "order": 20,
+      "text": "I prefer working in total isolation rather than interacting closely with team members.",
+      "dimension": "Social",
+      "reverse_scored": true
+    },
+    {
+      "order": 21,
+      "text": "I enjoy pitching ideas, persuading stakeholders, and leading project teams.",
+      "dimension": "Enterprising",
+      "reverse_scored": false
+    },
+    {
+      "order": 22,
+      "text": "I am motivated by entrepreneurial challenges, business strategy, and ambitious targets.",
+      "dimension": "Enterprising",
+      "reverse_scored": false
+    },
+    {
+      "order": 23,
+      "text": "I like organizing public events, marketing campaigns, or student club initiatives.",
+      "dimension": "Enterprising",
+      "reverse_scored": false
+    },
+    {
+      "order": 24,
+      "text": "I take initiative in decision-making and negotiations during high-stakes situations.",
+      "dimension": "Enterprising",
+      "reverse_scored": false
+    },
+    {
+      "order": 25,
+      "text": "I avoid taking leadership responsibilities or negotiating terms during group decisions.",
+      "dimension": "Enterprising",
+      "reverse_scored": true
+    },
+    {
+      "order": 26,
+      "text": "I like organizing spreadsheets, categorizing data, and maintaining accurate records.",
+      "dimension": "Conventional",
+      "reverse_scored": false
+    },
+    {
+      "order": 27,
+      "text": "I enjoy creating structured workflows, checklists, and step-by-step documentation.",
+      "dimension": "Conventional",
+      "reverse_scored": false
+    },
+    {
+      "order": 28,
+      "text": "I value precision, regulatory compliance, and attention to detail in financial or operational tasks.",
+      "dimension": "Conventional",
+      "reverse_scored": false
+    },
+    {
+      "order": 29,
+      "text": "I feel comfortable following systematic, predictable schedules and quality standards.",
+      "dimension": "Conventional",
+      "reverse_scored": false
+    },
+    {
+      "order": 30,
+      "text": "I find maintaining orderly records and double-checking operational details tedious.",
+      "dimension": "Conventional",
+      "reverse_scored": true
+    }
+  ]
+}
