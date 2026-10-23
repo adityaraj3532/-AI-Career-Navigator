@@ -670,6 +670,39 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Offline batch generation tasks (e.g. bulk catalog enrichment) require asynchronous execution horizons greater than 60s.
 
+---
+
+## ADR-028: Demo Account Seeding Architecture & Realistic Multi-Domain Persona Synthesis
+
+- **Options Considered**:
+  - Ad-hoc manual SQL inserts vs Dedicated, idempotent async Python seeding CLI (`scripts/seed_demo_account.py`).
+  - Minimal synthetic stub (only user + profile) vs Full-spectrum platform persona linking assessment, verified career shortlists, active roadmap, planner schedule, activity streak, milestones, skills evidence, and public portfolio.
+- **Choice**: **Full-Spectrum, Idempotent CLI Seeder (`scripts/seed_demo_account.py`) with Pre-flight Catalog Prerequisites Verification and Automated Multi-Domain Test Suite (`tests/test_seed_demo_account.py`)**
+- **Reason**:
+  - **Comprehensive Multi-Domain Coverage**:
+    - The demo user (`demo@career-navigator.io` / "Alex Chen") represents an authentic third-year CS student across all product verticals:
+      - **Authentication & Profile**: Role `student`, `education_level="college"`, bio, hours budget (20 hrs/wk), subjects of interest, declared skills, and `Asia/Kolkata` timezone.
+      - **Psychometric Assessment**: Completed attempt with 6 RIASEC question ratings, scoring result with Holland code `"IRC"` (Investigative/Realistic/Conventional), normalized dimension scores (I: 92.0, R: 75.0, C: 80.0), AI career explanations, and verified career suggestions.
+      - **Verified Shortlist**: Shortlisted verified careers (`SWE` and `DATA_SCIENTIST`).
+      - **Curriculum Roadmap**: Active SDE roadmap with 3 phases (Phase 1 100% completed, Phase 2 in-progress, Phase 3 pending).
+      - **Daily Planner**: Linked tasks across past completion dates, in-progress tasks for today, and scheduled custom tasks for tomorrow.
+      - **Activity Ledger & Streaks**: 7 continuous daily activity events ending today establishing an active 7-day streak without backdating violations.
+      - **Milestones**: 4 awarded milestone rules (`first_test`, `first_project`, `streak_7_days`, `first_phase_done`) with valid evidence JSON payloads.
+      - **Weekly Goals**: Current and previous Monday week goals for roadmap items and study minutes.
+      - **Skills & Evidence**: Level signals (`advanced`/`intermediate`) with underlying evidence (`score=92`, `score=85`, `score=88`) across tests, projects, and roadmap milestones.
+      - **Public Portfolio**: Published portfolio with slug `alex-chen`, custom production projects, AWS certification, hackathon finalist award, and achievements.
+  - **Self-Contained & Idempotent Execution**:
+    - `ensure_catalog_prerequisites` safely provisions missing baseline catalog items (careers, skills, RIASEC questions, milestone rules) before user instantiation.
+    - Idempotent execution safely updates existing records without duplicate key collisions.
+    - CLI `--force-refresh` leverages database cascading deletes on `users.id` to cleanly reset and re-seed all dependent tables.
+  - **Security Guardrails**:
+    - Seeded public portfolio adheres strictly to zero-leakage rules, verified by automated tests confirming forbidden keys (`user_id`, `email`, test answers, internal IDs) never leak to `/v1/portfolio/p/{slug}`.
+- **Trade-off**:
+  - Requires maintaining cross-domain entity alignment when schema additions occur. However, the comprehensive test suite (`tests/test_seed_demo_account.py`) guarantees immediate detection of schema drifts.
+- **Revisit if**:
+  - Multi-tenant enterprise environments require dynamic organization-specific demo persona factories.
+
+
 
 
 

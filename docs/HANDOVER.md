@@ -4,6 +4,46 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 5: Realistic Demo Account Seeding & Verification)
+
+### Done
+- **Full-Spectrum Demo Seeding CLI (`scripts/seed_demo_account.py`)**:
+  - Implemented standalone, idempotent seeding engine for realistic student persona (`demo@career-navigator.io` / "Alex Chen"):
+    - **Authentication**: `role="student"`, `education_level="college"`, password hashed via argon2id.
+    - **Student Profile**: Name, budget level (`medium`), 20 hours/week, 4 subjects of interest, declared skills, and `Asia/Kolkata` timezone.
+    - **Psychometric Assessment**: Completed assessment attempt with 6 RIASEC answers, scored result with Holland code `"IRC"`, normalized RIASEC dimensions (I: 92.0, R: 75.0, C: 80.0), personal AI narrative explanation, and career suggestions.
+    - **Career Shortlist**: Verified shortlisted careers (`Software Development Engineer` and `Data Scientist & Machine Learning Engineer`).
+    - **Curriculum Roadmap**: Active SDE roadmap with 3 phases (Phase 1 Algorithmic Foundations 100% completed, Phase 2 Backend APIs in progress, Phase 3 Distributed Systems pending).
+    - **Planner Schedule**: Linked tasks across completed past dates, in-progress tasks today, and pending custom task tomorrow ("Review Raft Consensus Protocol paper").
+    - **Activity Ledger & Streaks**: 7 consecutive daily activity events ending today establishing an active 7-day streak without backdating.
+    - **Milestones**: 4 awarded milestone rules (`first_test`, `first_project`, `streak_7_days`, `first_phase_done`) with structured evidence payloads.
+    - **Weekly Goals**: Current and previous Monday goals for roadmap items and study minutes.
+    - **Skills & Evidence**: Level signals (`advanced`/`intermediate`) and verified evidence (`score=92`, `score=85`, `score=88`) for Python, PostgreSQL, FastAPI, and Algorithms.
+    - **Public Portfolio**: Published portfolio with slug `alex-chen`, custom production projects, AWS certification, hackathon finalist award, and achievements.
+  - **Prerequisites Self-Sufficiency**: Idempotently seeds required baseline careers, skills, questions, and milestone rules if missing from database.
+  - **Safe Lifecycle Control**: Supports in-place updates as well as `--force-refresh` teardown/rebuild via cascading foreign key deletes.
+- **Demo Account Verification Suite (`tests/test_seed_demo_account.py`)**:
+  - 6 comprehensive tests:
+    - `test_seed_demo_account_creates_all_artifacts`: Full database assertions verifying every table in the ecosystem.
+    - `test_seed_demo_account_idempotence`: Asserts running twice preserves user identity without collision.
+    - `test_seed_demo_account_force_refresh`: Asserts `--force-refresh` cleanly replaces user ecosystem.
+    - `test_seed_demo_account_cli_argument_defaults`: Asserts CLI arguments and default values.
+    - `test_demo_account_public_portfolio_endpoint`: Asserts `/v1/portfolio/p/{slug}` returns public view with zero leaked forbidden keys (`user_id`, `email`, test answers, internal IDs).
+    - `test_demo_account_progress_summary_endpoint`: Asserts `/v1/progress/summary` returns 7-day streak and milestones.
+- **Testing & Verification**:
+  - `tests/test_seed_demo_account.py`: 6 passed in 5.43s.
+  - Code hygiene: `ruff check scripts tests` passed with 0 errors.
+
+### Active Invariants
+- Demo user `demo@career-navigator.io` has an active 7-day streak, 4 awarded milestone rules, active roadmap, and public portfolio slug `alex-chen`.
+- Public portfolio responses strictly contain zero forbidden internal identifiers or private profile fields.
+- Seeding script is fully idempotent and safely re-executable without duplicate key errors.
+
+### Pending / Next Items
+- **Security Audit Fix 6 (Security Architecture Documentation)**: Draft `DEFENSE.md`, `DECISIONS.md`, `ALTERNATIVES.md`, `THREAT.md`, `FAILURE.md`, and `DATA.md` from actual code.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 4: Multi-Layer Timeouts, Strict Retry Boundaries, & Deterministic Fallbacks)
 
 ### Done
