@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Optional
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,10 +25,10 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Security & Tokens (Phase 2 readiness)
+    # Security & Tokens
     JWT_SECRET_KEY: str = "change_this_to_a_secure_random_64_char_secret_in_production"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # LLM Gateway
@@ -41,6 +42,16 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        if self.ENVIRONMENT.lower() == "production":
+            key_bytes = self.JWT_SECRET_KEY.encode("utf-8")
+            if len(key_bytes) < 32 or "change_this" in self.JWT_SECRET_KEY.lower():
+                raise ValueError(
+                    "Production requires a secure, non-default JWT_SECRET_KEY of at least 32 bytes (256 bits)."
+                )
+        return self
 
 
 @lru_cache()

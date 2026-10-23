@@ -123,3 +123,22 @@ This document tracks all foundational technology and architecture choices, evalu
   - Callers must author domain-appropriate fallback factories.
 - **Revisit if**:
   - Never. Deterministic fallback guarantees high availability and zero user-facing crash states.
+
+---
+
+## ADR-008: Auth Architecture – UUIDs, PyJWT, Opaque Tokens & Family Reuse Detection
+
+- **Options Considered**:
+  - User identifiers: Serial autoincrement integers vs PostgreSQL UUIDs (`uuid.UUID`).
+  - JWT Engine: `python-jose` vs `PyJWT`.
+  - Refresh Tokens: Stateless self-contained JWTs vs Opaque DB-tracked tokens with family rotation.
+- **Choice**: **PostgreSQL UUIDs + PyJWT + Opaque SHA-256 Hashed Tokens with Token Family Reuse Detection**
+- **Reason**:
+  - **UUIDs**: Prevent ID enumeration and resource scraping across multi-tenant endpoints; client cannot guess another student's user ID.
+  - **PyJWT**: Actively maintained, strictly RFC 7519 compliant, and enforces unambiguous algorithm pinning (`HS256`), eliminating `alg: none` header bypass attacks.
+  - **Opaque Refresh Tokens with SHA-256 Hashing**: Prevents token theft via database inspection (tokens in DB are one-way hashed). Allows instantaneous server-side revocation upon logout or password change.
+  - **Token Family Reuse Detection**: Each token generation chain shares a `family_id`. If an already-used or revoked refresh token is presented (indicating a replay or stolen token), the gateway immediately revokes all tokens across the entire family, protecting the user account.
+- **Trade-off**:
+  - Requires database roundtrips during token rotation (mitigated by indexed SHA-256 hash lookup).
+- **Revisit if**:
+  - Highly distributed edge deployments strictly require zero-datastore token verification without revocation requirements.

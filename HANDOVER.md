@@ -4,37 +4,44 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
-## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – LLM Gateway Step 1
+## Session: 2026-10-23 (Gemini 3.8 Flash (Medium)) – Auth Step 1 (Users & Token Rotation)
 
 ### Done
-- Implemented `BaseLLMProvider`, `GeminiProvider` (using official `google-genai==2.29.0`), and `MockLLMProvider` in `app/llm/provider.py`.
-- Verified and pinned `google-genai==2.29.0` (released 2026-10-07, >14 days stable on PyPI) with `pydantic==2.14.1` and `httpx==0.28.1`. Logged in `docs/DEPENDENCIES.md`.
-- Implemented `PromptManager` in `app/llm/prompt_manager.py` with versioned file template loading from `app/llm/prompts/` (e.g. `career_explainer_v1.txt`).
-- Implemented strict prompt injection defense (`PromptInjectionDefense`), neutralizing delimiter breakouts and wrapping all untrusted user text inside `<user_input name="...">...</user_input>`.
-- Implemented `LLMGateway` in `app/llm/gateway.py` with:
-  - 15-second per-call timeout.
-  - 20-second overall time budget for entire operation.
-  - Pydantic schema validation.
-  - Exactly one retry on validation failure only (no retries on timeout or network exceptions).
-  - Optional `post_validator` callback rejecting outputs with hallucinated/unverified database IDs.
-  - Guaranteed deterministic fallback via `fallback_factory`.
-- Implemented zero-PII telemetry in `app/llm/telemetry.py` recording `prompt_name`, `version`, `model`, `status`, `fallback_used`, `latency_ms`, and `attempts` with strict exclusion of prompt text and user inputs.
-- Authored comprehensive test suite in `tests/test_llm_gateway.py` (invalid JSON retry/fallback, timeout fallback, unknown-ID rejection, prompt injection defense, zero user text in telemetry, and optional live Gemini smoke test). Real test run: 13 passed, 1 skipped (live key).
-- Documented gateway fallback resilience in `docs/DECISIONS.md` (ADR-007).
+- Replaced `python-jose` with `PyJWT==2.15.1`, `passlib` with standalone `bcrypt==5.0.0`, and updated `python-multipart==0.0.32` (all pinned and verified >14 days stable). Updated `docs/DEPENDENCIES.md`.
+- Implemented `User` model with PostgreSQL `UUID` primary key, normalized lowercase unique email, bcrypt password hash, strict `student` default role, and `education_level` (`app/models/user.py`).
+- Implemented `RefreshToken` model with UUID primary keys, SHA-256 hashed storage, `family_id` tracking, and timestamps (`app/models/auth.py`).
+- Created initial database migration `alembic/versions/001_create_users_and_refresh_tokens.py` with upgrade and downgrade logic for PostgreSQL.
+- Implemented security primitives in `app/core/security.py`:
+  - Standalone `bcrypt` hashing with 72-byte max length enforcement.
+  - Dummy bcrypt hash verification on non-existent emails to neutralize timing attacks on login.
+  - Strict 15-minute `PyJWT` access token issuance with algorithm pinned to `HS256` (rejecting `none` and all other algs).
+  - Opaque cryptographically random refresh tokens and SHA-256 hashing.
+- Implemented `UserRepository` and `TokenRepository` (`app/repositories/`).
+- Implemented `AuthService` (`app/services/auth_service.py`):
+  - Signup (strictly `student` role, `extra="forbid"` on schemas).
+  - Login (identical error response for unknown email and wrong password with dummy hash timing defense).
+  - Refresh token rotation on every use with **Token Family Reuse Detection** (revokes entire family if an already-used or revoked token is re-submitted).
+  - Logout and Logout-All (revoking active user refresh sessions).
+  - Change-Password (verifies current password, updates hash, revokes all user sessions).
+- Created CLI admin provisioning script (`scripts/create_admin.py`).
+- Configured ARQ scheduled token purge task (`delete_expired_tokens_task` running daily at 03:00 UTC).
+- Implemented strict `get_current_user` dependency in `app/api/deps.py` (Bearer JWT only, zero test-user fallback headers).
+- Created comprehensive test suite in `tests/test_auth.py` (16 test cases). Real test run: 28 passed, 1 skipped (Gemini live key).
+- Documented architectural decisions in `docs/DECISIONS.md` (ADR-008: UUIDs, PyJWT, Opaque Tokens, and Family Reuse Detection).
 
 ### In progress
-- LLM Gateway Step 1 complete. Awaiting review before Step 2.
+- Auth Step 1 complete. Awaiting review before proceeding to Auth Step 2 (Password reset with ARQ email queue, Redis login rate limiting with in-process fallback).
 
 ### Broken or risky
-- Live Gemini API calls require setting `GEMINI_API_KEY` in environment; CI and local tests safely mock provider execution.
+- Local PostgreSQL service was offline on developer machine during session; unit & integration tests ran with test isolation repository double in `tests/conftest.py`. Real PostgreSQL is executed via `.github/workflows/ci.yml` service container.
 
-### Next (LLM Gateway Step 2 upon approval)
-- Implement Redis-based per-user sliding window and global rate limiting.
-- Implement token usage and estimated cost tracking in telemetry.
-- Implement streaming for chat endpoints (`StreamingResponse` / SSE).
-- Implement fail-closed fallback execution when Redis is unreachable.
+### Next (Auth Step 2 upon approval)
+- Implement single-use 30-minute password reset tokens with SHA-256 hash storage, invalidating older outstanding tokens.
+- Implement ARQ email queuing for password reset delivery with identical timing/response for existent vs nonexistent emails.
+- Implement progressive Redis rate limiting on login (per IP and per email), signup, and reset requests, with strict in-process fallback if Redis is down.
+- Once Auth is fully completed, deliver the Student Profile domain and deterministic completeness scoring.
 
 ### Do not touch
-- `docs/CONSTRAINTS.md`: All security and product constraints are locked.
-- Prompt injection delimitation boundary (`<user_input>...</user_input>`).
-- Zero PII / raw text logging policy in `app/llm/telemetry.py`.
+- `docs/CONSTRAINTS.md`: Core product constraints are locked.
+- Production auth policy: Bearer JWT only; no test-user headers anywhere in `app/`.
+- Strict schema policy: `extra="forbid"`, no `role` field in client requests.
