@@ -1,4 +1,5 @@
 
+
 import { useMemo, useState } from 'react'
 import {
   ArrowRight,
@@ -140,6 +141,116 @@ const tasks: RoadmapTask[] = [
   },
 ]
 
+
+const dataAnalystTasks: RoadmapTask[] = [
+  {
+    id: 1,
+    phase: 1,
+    title: 'Learn spreadsheet fundamentals',
+    duration: '3 hours',
+    description: 'Organize data, use formulas, and summarize information in spreadsheets.',
+    instructions: [
+      'Learn rows, columns, cell references, and basic data types.',
+      'Practice SUM, AVERAGE, COUNTIF, and IF formulas.',
+      'Sort and filter a sample dataset.',
+      'Create a summary of your findings.',
+    ],
+    criteria: [
+      'The dataset is organized and readable.',
+      'At least three formulas work correctly.',
+      'The summary communicates useful findings.',
+    ],
+    resource: 'Google Sheets training',
+    resourceUrl: 'https://support.google.com/a/users/answer/9282959',
+  },
+  {
+    id: 2,
+    phase: 1,
+    title: 'Query data with SQL',
+    duration: '5 hours',
+    description: 'Learn to retrieve and analyze information from relational databases.',
+    instructions: [
+      'Understand tables, rows, and columns.',
+      'Practice SELECT, FROM, and WHERE.',
+      'Use ORDER BY and GROUP BY.',
+      'Calculate totals using aggregate functions.',
+    ],
+    criteria: [
+      'Queries select the correct columns.',
+      'Filters return the expected records.',
+      'Grouped results use aggregate functions correctly.',
+    ],
+    resource: 'SQLBolt interactive lessons',
+    resourceUrl: 'https://sqlbolt.com/',
+  },
+  {
+    id: 3,
+    phase: 2,
+    title: 'Analyze data with Python',
+    duration: '6 hours',
+    description: 'Use Python and pandas to clean and explore datasets.',
+    instructions: [
+      'Learn Python variables, lists, and functions.',
+      'Load a CSV file using pandas.',
+      'Inspect missing values and duplicate rows.',
+      'Calculate summary statistics.',
+    ],
+    criteria: [
+      'The CSV file loads successfully.',
+      'Missing values and duplicates are investigated.',
+      'The analysis produces meaningful summary statistics.',
+    ],
+    resource: 'pandas getting started',
+    resourceUrl: 'https://pandas.pydata.org/docs/getting_started/',
+    project: 'A cleaned dataset with a short analysis.',
+  },
+  {
+    id: 4,
+    phase: 2,
+    title: 'Visualize data and discover patterns',
+    duration: '5 hours',
+    description: 'Turn analysis into charts that communicate useful insights.',
+    instructions: [
+      'Choose a dataset that interests you.',
+      'Create at least three suitable charts.',
+      'Label chart axes and titles clearly.',
+      'Write three observations supported by the data.',
+    ],
+    criteria: [
+      'Charts represent the data accurately.',
+      'Labels and titles are clear.',
+      'Insights are supported by the dataset.',
+    ],
+    resource: 'Microsoft Power BI learning',
+    resourceUrl: 'https://learn.microsoft.com/en-us/training/powerplatform/power-bi/',
+    project: 'A small data analysis report with charts.',
+  },
+  {
+    id: 5,
+    phase: 3,
+    title: 'Build a data analytics portfolio project',
+    duration: '1 week',
+    description: 'Complete an end-to-end analysis and present your findings.',
+    instructions: [
+      'Choose a public dataset.',
+      'Clean and analyze it using SQL, Python, or spreadsheets.',
+      'Create a dashboard or report.',
+      'Document your methods and findings.',
+      'Publish your project and explain your conclusions.',
+    ],
+    criteria: [
+      'The dataset and methods are documented.',
+      'The analysis is reproducible.',
+      'The report includes meaningful findings.',
+      'The project is ready to show in a portfolio.',
+    ],
+    resource: 'Kaggle datasets',
+    resourceUrl: 'https://www.kaggle.com/datasets',
+    project: 'A documented analysis with visualizations and conclusions.',
+  },
+]
+
+
 const phases = [
   { id: 1, title: 'Build foundations', subtitle: 'HTML and CSS' },
   { id: 2, title: 'Write interactive code', subtitle: 'JavaScript and React' },
@@ -147,51 +258,92 @@ const phases = [
 ]
 
 export default function CareerRoadmapPage() {
-  const [career, setCareer] = useState('Frontend Developer')
+//   const [career, setCareer] = useState('Frontend Developer')
+  const [career, setCareer] = useState(() => {
+  const savedCareer = localStorage.getItem('pathpilot-selected-career')
+
+  const careerNames: Record<string, string> = {
+    software: 'Software Developer',
+    data: 'Data Analyst',
+    design: 'UI/UX Designer',
+    ai: 'AI / ML Engineer',
+    product: 'Software Developer',
+  }
+
+  return careerNames[savedCareer ?? ''] ?? 'Frontend Developer'
+})
+const activeTasks =
+  career === 'Data Analyst'
+    ? dataAnalystTasks
+    : tasks
+
   const [hours, setHours] = useState('8')
   const [completed, setCompleted] = useState<number[]>([])
   const [activeTaskId, setActiveTaskId] = useState(1)
   const [expandedPhase, setExpandedPhase] = useState<number>(1)
   const [showAll, setShowAll] = useState(false)
 
-  const progress = Math.round((completed.length / tasks.length) * 100)
 
-  const nextTask = useMemo(
-    () => tasks.find((task) => !completed.includes(task.id)),
-    [completed],
-  )
+  
+  
+  const progress = Math.round(
+    (completed.length / activeTasks.length) * 100
+    )
 
-  const activeTask =
-    tasks.find((task) => task.id === activeTaskId) ?? tasks[0]
+    
+    const nextTask = useMemo(
+    () => activeTasks.find((task) => !completed.includes(task.id)),
+    [activeTasks, completed],
+    )
 
-  function toggleComplete(id: number) {
+    const activeTask =
+    activeTasks.find((task) => task.id === activeTaskId) ?? activeTasks[0]
+
+  
+    function toggleComplete(id: number) {
     const isDone = completed.includes(id)
 
     setCompleted((previous) =>
-      isDone
+        isDone
         ? previous.filter((taskId) => taskId !== id)
         : [...previous, id],
     )
 
     if (!isDone) {
-      const next = tasks.find(
+        const next = activeTasks.find(
         (task) => task.id !== id && !completed.includes(task.id),
-      )
+        )
 
-      if (next) {
+        if (next) {
         setActiveTaskId(next.id)
         setExpandedPhase(next.phase)
-      }
+        }
     }
-  }
+    }
 
-  function selectCareer(value: string) {
+
+  
+    function selectCareer(value: string) {
+    const careerIds: Record<string, string> = {
+        'Frontend Developer': 'software',
+        'Software Developer': 'software',
+        'Data Analyst': 'data',
+        'UI/UX Designer': 'design',
+        'AI / ML Engineer': 'ai',
+    }
+
     setCareer(value)
+    localStorage.setItem(
+        'pathpilot-selected-career',
+        careerIds[value] ?? 'software',
+    )
     setCompleted([])
     setActiveTaskId(1)
     setExpandedPhase(1)
-  }
+    }
 
+
+ 
   return (
     <main className="roadmap-page">
       <header className="roadmap-header">
@@ -237,7 +389,8 @@ export default function CareerRoadmapPage() {
         <div className="roadmap-progress-top">
           <div>
             <p className="roadmap-eyebrow">YOUR PROGRESS</p>
-            <h2>{completed.length} of {tasks.length} tasks completed</h2>
+            
+            <h2>{completed.length} of {activeTasks.length} tasks completed</h2>
           </div>
           <strong>{progress}%</strong>
         </div>
@@ -295,7 +448,7 @@ export default function CareerRoadmapPage() {
         </div>
 
         {phases.map((phase) => {
-          const phaseTasks = tasks.filter((task) => task.phase === phase.id)
+          const phaseTasks = activeTasks.filter((task) => task.phase === phase.id)
           const done = phaseTasks.filter((task) =>
             completed.includes(task.id),
           ).length
@@ -329,7 +482,10 @@ export default function CareerRoadmapPage() {
 
               {isOpen && (
                 <div className="roadmap-phase-tasks">
-                  {phaseTasks.map((task) => {
+
+
+                {phaseTasks.map((task) => {  
+                
                     const isDone = completed.includes(task.id)
                     const isActive = activeTaskId === task.id
 

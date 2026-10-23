@@ -34,23 +34,32 @@ export default function App() {
   const [completed, setCompleted] = useState<number[]>([0])
   const [menuOpen, setMenuOpen] = useState(false)
 
+  
   useEffect(() => {
-  const handleCareerSelected = () => {
-    setActive('My Roadmap')
-  }
+    const handleCareerSelected = (event: Event) => {
+      const careerId = (event as CustomEvent<string>).detail
 
-  window.addEventListener(
-    'pathpilot-career-selected',
-    handleCareerSelected
-  )
+      if (careerId) {
+        localStorage.setItem('pathpilot-selected-career', careerId)
+      }
 
-  return () => {
-    window.removeEventListener(
+      setActive('My Roadmap')
+    }
+
+    window.addEventListener(
       'pathpilot-career-selected',
       handleCareerSelected
     )
-  }
-}, [])
+
+    return () => {
+      window.removeEventListener(
+        'pathpilot-career-selected',
+        handleCareerSelected
+      )
+    }
+  }, [])
+
+
 
   const progress = Math.round((completed.length / tasks.length) * 100)
 
