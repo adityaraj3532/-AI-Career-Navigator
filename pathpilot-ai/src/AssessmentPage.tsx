@@ -161,13 +161,35 @@ export default function AssessmentPage() {
   const currentQuestion = questions[answers.length]
   const progress = Math.round((answers.length / questions.length) * 100)
 
-  const scores = careers.map((career) => ({
+  const scores = careers.map((career) => {
+  const score = questions.reduce((total, question, index) => {
+    const option = question.options[answers[index]]
+    return total + (option?.scores[career.id] ?? 0)
+  }, 0)
+
+  const maxScore = questions.reduce((total, question) => {
+    const highestQuestionScore = Math.max(
+      ...question.options.map(
+        (option) => option.scores[career.id] ?? 0
+      )
+    )
+
+    return total + highestQuestionScore
+  }, 0)
+
+  const matchPercentage =
+    maxScore === 0 ? 0 : Math.round((score / maxScore) * 100)
+
+  return {
     ...career,
-    score: questions.reduce((total, question, index) => {
-      const option = question.options[answers[index]]
-      return total + (option?.scores[career.id] ?? 0)
-    }, 0),
-  })).sort((a, b) => b.score - a.score)
+    score,
+    matchPercentage,
+  }
+}).sort((a, b) => b.matchPercentage - a.matchPercentage)
+
+
+
+
 
     function chooseAnswer(index: number) {
     const updatedAnswers = [...answers, index]
@@ -220,8 +242,24 @@ export default function AssessmentPage() {
                     <div className={`career-result-icon career-color-${career.id}`}><Icon size={22} /></div>
                     {index === 0 && <span className="career-match-label">Top suggestion</span>}
                   </div>
+                  
+
                   <h2>{career.title}</h2>
+
+                  <div className="career-match-score">
+                    <span>Career match</span>
+                    <strong>{career.matchPercentage}%</strong>
+                  </div>
+
+                  <div className="career-match-track">
+                    <div
+                      className="career-match-fill"
+                      style={{ width: `${career.matchPercentage}%` }}
+                    />
+                  </div>
+
                   <p>{career.description}</p>
+
                   <div className="career-reason"><strong>Why explore it?</strong><span>{career.strengths}</span></div>
                   <div className="career-skills">
                     {career.skills.map((skill) => <span key={skill}>{skill}</span>)}

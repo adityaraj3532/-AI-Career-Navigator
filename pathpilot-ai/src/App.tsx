@@ -1,4 +1,7 @@
 
+import OpportunitiesPage from './OpportunitiesPage'
+import AssessmentsPage from './AssessmentsPage'
+import AssessmentPage from './AssessmentPage'
 import ProjectsPage from './ProjectsPage'
 import LearnPage from './LearnPage'
 import ProfilePage from './ProfilePage'
@@ -11,7 +14,7 @@ import {
   ClipboardCheck, UserRound, ArrowRight, Clock, Sparkles,
   CheckCircle2, Menu, X, Brain,Target
 } from 'lucide-react'
-import AssessmentPage from './AssessmentPage'
+
 import './App.css'
 
 type NavigationItem = {
@@ -142,6 +145,10 @@ export default function App() {
               <LearnPage />
             ) : active === 'Projects' ? (
               <ProjectsPage />
+            ) : active === 'Assessments' ? (
+              <AssessmentsPage />
+            ) : active === 'Opportunities' ? (
+              <OpportunitiesPage />
             ) : active === 'Home' ? (
           <div className="page-content">
             <section className="welcome">
