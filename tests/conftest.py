@@ -39,6 +39,12 @@ from app.models.skill import (
     SkillEvidence,
     UserSkill,
 )
+from app.models.exam_cycle import ExamCycle
+from app.models.roadmap import (
+    RoadmapTemplate,
+    TemplatePhase,
+    TemplateItem,
+)
 from app.models.user import User
 from app.schemas.assessment import AnswerItem
 
@@ -811,6 +817,14 @@ async def test_storage():
         "skills": {},
         "skill_evidence": {},
         "user_skills": {},
+        "roadmap_templates": {},
+        "template_phases": {},
+        "template_items": {},
+        "roadmaps": {},
+        "roadmap_phases": {},
+        "roadmap_items": {},
+        "replan_history": {},
+        "exam_cycles": {},
     }
 
     # Pre-seed assessment questions
@@ -1019,6 +1033,92 @@ async def test_storage():
                 created_at=datetime.now(timezone.utc),
             )
             storage["skills"][sid] = skill
+
+    # Pre-seed exam cycles
+    ec_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "exam_cycles.json"
+    if ec_file.is_file():
+        with open(ec_file, "r", encoding="utf-8") as f:
+            ec_data = json.load(f)
+        for item in ec_data.get("exam_cycles", []):
+            exam = next((e for e in storage["exams"].values() if e.code == item["exam_code"]), None)
+            if exam:
+                cid = uuid4()
+                cycle = ExamCycle(
+                    id=cid,
+                    exam_id=exam.id,
+                    year=item["year"],
+                    registration_start=datetime.fromisoformat(item["registration_start"].replace("Z", "+00:00")) if item.get("registration_start") else None,
+                    registration_end=datetime.fromisoformat(item["registration_end"].replace("Z", "+00:00")) if item.get("registration_end") else None,
+                    exam_date=datetime.fromisoformat(item["exam_date"].replace("Z", "+00:00")) if item.get("exam_date") else None,
+                    source_url=item["source_url"],
+                    status=item.get("status", "draft"),
+                    created_at=datetime.now(timezone.utc),
+                )
+                cycle.exam = exam
+                storage["exam_cycles"][cid] = cycle
+
+    # Pre-seed roadmap templates
+    rt_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "roadmap_templates.json"
+    if rt_file.is_file():
+        with open(rt_file, "r", encoding="utf-8") as f:
+            rt_data = json.load(f)
+        for tmpl_data in rt_data.get("templates", []):
+            career = next((c for c in storage["careers"].values() if c.code == tmpl_data["career_code"]), None)
+            if career:
+                tid = uuid4()
+                tmpl = RoadmapTemplate(
+                    id=tid,
+                    career_id=career.id,
+                    version=tmpl_data["version"],
+                    title=tmpl_data["title"],
+                    description=tmpl_data.get("description"),
+                    status=tmpl_data.get("status", "draft"),
+                    created_at=datetime.now(timezone.utc),
+                )
+                tmpl.career = career
+                storage["roadmap_templates"][tid] = tmpl
+
+                phase_map = {}
+                for p_data in tmpl_data.get("phases", []):
+                    pid = uuid4()
+                    phase = TemplatePhase(
+                        id=pid,
+                        template_id=tid,
+                        name=p_data["name"],
+                        phase_order=p_data["phase_order"],
+                        description=p_data.get("description"),
+                        created_at=datetime.now(timezone.utc),
+                    )
+                    phase.template = tmpl
+                    storage["template_phases"][pid] = phase
+                    phase_map[p_data["phase_order"]] = phase
+
+                for it_data in tmpl_data.get("items", []):
+                    iid = uuid4()
+                    sk = next((s for s in storage["skills"].values() if s.slug == it_data.get("skill_slug")), None)
+                    p_obj = phase_map.get(it_data.get("phase_order"))
+                    item = TemplateItem(
+                        id=iid,
+                        template_id=tid,
+                        phase_id=p_obj.id if p_obj else None,
+                        item_code=it_data.get("item_code"),
+                        type=it_data["type"],
+                        title=it_data["title"],
+                        source_url=it_data.get("source_url"),
+                        estimated_minutes=it_data.get("estimated_minutes", 60),
+                        difficulty=it_data.get("difficulty", 1),
+                        topic=it_data["topic"],
+                        skill_id=sk.id if sk else None,
+                        prerequisites=it_data.get("prerequisites", []),
+                        optional=it_data.get("optional", False),
+                        status=it_data.get("status", "draft"),
+                        sequence_order=it_data.get("sequence_order", 0),
+                        extra_data=it_data.get("extra_data", {}),
+                        created_at=datetime.now(timezone.utc),
+                    )
+                    item.template = tmpl
+                    item.skill = sk
+                    storage["template_items"][iid] = item
 
     return storage
 

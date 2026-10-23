@@ -1,0 +1,317 @@
+{
+  "templates": [
+    {
+      "career_code": "SWE",
+      "version": 1,
+      "title": "Software Development Engineer (SDE) Accelerated Roadmap",
+      "description": "Comprehensive engineering roadmap spanning core DSA topics, backend systems, portfolio capstones, and industry outreach.",
+      "status": "draft",
+      "phases": [
+        {
+          "phase_order": 1,
+          "name": "Phase 1: Foundations & DSA Mastery",
+          "description": "Algorithmic problem solving across foundational data structures and patterns."
+        },
+        {
+          "phase_order": 2,
+          "name": "Phase 2: Backend Architecture & Databases",
+          "description": "Production engineering concepts including async frameworks, relational modeling, and caching."
+        },
+        {
+          "phase_order": 3,
+          "name": "Phase 3: Personalised Engineering Projects",
+          "description": "Optional hands-on projects designed to demonstrate systems proficiency."
+        },
+        {
+          "phase_order": 4,
+          "name": "Phase 4: Outreach, Contests & Opportunities",
+          "description": "Strategic networking, hackathons, competitive exams, and hiring pipelines."
+        }
+      ],
+      "items": [
+        {
+          "phase_order": 1,
+          "item_code": "dsa_arrays_two_sum",
+          "type": "problem",
+          "title": "Two Sum (Array Hash Map Lookup)",
+          "source_url": "https://leetcode.com/problems/two-sum/",
+          "estimated_minutes": 45,
+          "difficulty": 1,
+          "topic": "Arrays",
+          "skill_slug": "dsa",
+          "prerequisites": [],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 1,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 1,
+            "subtopic": "Arrays"
+          }
+        },
+        {
+          "phase_order": 1,
+          "item_code": "dsa_binary_search_basic",
+          "type": "problem",
+          "title": "Binary Search Fundamentals",
+          "source_url": "https://leetcode.com/problems/binary-search/",
+          "estimated_minutes": 45,
+          "difficulty": 1,
+          "topic": "Binary Search",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_arrays_two_sum"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 2,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 704,
+            "subtopic": "Binary Search"
+          }
+        },
+        {
+          "phase_order": 1,
+          "item_code": "dsa_strings_valid_anagram",
+          "type": "problem",
+          "title": "Valid Anagram (Frequency Hashing)",
+          "source_url": "https://leetcode.com/problems/valid-anagram/",
+          "estimated_minutes": 40,
+          "difficulty": 1,
+          "topic": "Strings",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_arrays_two_sum"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 3,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 242,
+            "subtopic": "Strings"
+          }
+        },
+        {
+          "phase_order": 1,
+          "item_code": "dsa_sliding_window_longest",
+          "type": "problem",
+          "title": "Longest Substring Without Repeating Characters",
+          "source_url": "https://leetcode.com/problems/longest-substring-without-repeating-characters/",
+          "estimated_minutes": 60,
+          "difficulty": 2,
+          "topic": "Sliding Window",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_strings_valid_anagram"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 4,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 3,
+            "subtopic": "Sliding Window"
+          }
+        },
+        {
+          "phase_order": 1,
+          "item_code": "dsa_trees_level_order",
+          "type": "problem",
+          "title": "Binary Tree Level Order Traversal",
+          "source_url": "https://leetcode.com/problems/binary-tree-level-order-traversal/",
+          "estimated_minutes": 75,
+          "difficulty": 2,
+          "topic": "Trees",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_arrays_two_sum"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 5,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 102,
+            "subtopic": "Trees"
+          }
+        },
+        {
+          "phase_order": 1,
+          "item_code": "dsa_graphs_num_islands",
+          "type": "problem",
+          "title": "Number of Islands (Grid BFS/DFS)",
+          "source_url": "https://leetcode.com/problems/number-of-islands/",
+          "estimated_minutes": 80,
+          "difficulty": 2,
+          "topic": "Graphs",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_trees_level_order"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 6,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 200,
+            "subtopic": "Graphs"
+          }
+        },
+        {
+          "phase_order": 1,
+          "item_code": "dsa_dp_coin_change",
+          "type": "problem",
+          "title": "Coin Change (Unbounded Knapsack DP)",
+          "source_url": "https://leetcode.com/problems/coin-change/",
+          "estimated_minutes": 90,
+          "difficulty": 2,
+          "topic": "Dynamic Programming",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_arrays_two_sum"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 7,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 322,
+            "subtopic": "Dynamic Programming"
+          }
+        },
+        {
+          "phase_order": 1,
+          "item_code": "dsa_hard_trapping_rain_water",
+          "type": "problem",
+          "title": "Trapping Rain Water",
+          "source_url": "https://leetcode.com/problems/trapping-rain-water/",
+          "estimated_minutes": 110,
+          "difficulty": 3,
+          "topic": "Two Pointers",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_sliding_window_longest"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 8,
+          "extra_data": {
+            "platform": "LeetCode",
+            "problem_number": 42,
+            "subtopic": "Arrays"
+          }
+        },
+        {
+          "phase_order": 2,
+          "item_code": "backend_video_fastapi_async",
+          "type": "video",
+          "title": "Asynchronous Event Loop and FastAPI Dependency Injection",
+          "source_url": null,
+          "estimated_minutes": 120,
+          "difficulty": 2,
+          "topic": "Backend Architecture",
+          "skill_slug": "python",
+          "prerequisites": ["dsa_arrays_two_sum"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 9,
+          "extra_data": {
+            "subject": "Web Frameworks"
+          }
+        },
+        {
+          "phase_order": 2,
+          "item_code": "backend_video_sql_indexing",
+          "type": "video",
+          "title": "B-Tree Indexing, Query Explain Plans, and Concurrency",
+          "source_url": null,
+          "estimated_minutes": 90,
+          "difficulty": 2,
+          "topic": "Databases",
+          "skill_slug": "sql-databases",
+          "prerequisites": ["backend_video_fastapi_async"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 10,
+          "extra_data": {
+            "subject": "PostgreSQL Optimization"
+          }
+        },
+        {
+          "phase_order": 3,
+          "item_code": "project_beginner_api",
+          "type": "project",
+          "title": "Production-Ready REST API with Structured Logging and JWT",
+          "source_url": null,
+          "estimated_minutes": 360,
+          "difficulty": 1,
+          "topic": "Backend Systems",
+          "skill_slug": "python",
+          "prerequisites": ["backend_video_fastapi_async"],
+          "optional": true,
+          "status": "draft",
+          "sequence_order": 11,
+          "extra_data": {
+            "project_level": "beginner",
+            "deliverables": ["OpenAPI documentation", "Integration test suite", "Docker compose environment"]
+          }
+        },
+        {
+          "phase_order": 3,
+          "item_code": "project_intermediate_cache",
+          "type": "project",
+          "title": "High-Throughput In-Memory Key-Value Cache with LRU Eviction",
+          "source_url": null,
+          "estimated_minutes": 480,
+          "difficulty": 2,
+          "topic": "System Design",
+          "skill_slug": "system-design",
+          "prerequisites": ["dsa_graphs_num_islands", "backend_video_fastapi_async"],
+          "optional": true,
+          "status": "draft",
+          "sequence_order": 12,
+          "extra_data": {
+            "project_level": "intermediate",
+            "deliverables": ["Lock-free concurrency benchmark", "TTL expiration worker", "Snapshot serialization"]
+          }
+        },
+        {
+          "phase_order": 4,
+          "item_code": "outreach_junior_sde_linkedin",
+          "type": "outreach",
+          "title": "Targeted Outreach Framework for Junior Software Engineers",
+          "source_url": null,
+          "estimated_minutes": 60,
+          "difficulty": 1,
+          "topic": "Outreach & Hiring",
+          "skill_slug": null,
+          "prerequisites": ["backend_video_fastapi_async"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 13,
+          "extra_data": {
+            "target_roles": [
+              "Software Development Engineer I",
+              "Junior Backend Developer",
+              "Associate Software Engineer"
+            ],
+            "search_keywords": [
+              "FastAPI",
+              "Python Backend",
+              "PostgreSQL",
+              "Distributed Systems",
+              "AsyncIO"
+            ]
+          }
+        },
+        {
+          "phase_order": 4,
+          "item_code": "opportunity_gate_cs_exam",
+          "type": "exam",
+          "title": "GATE Computer Science & IT Examination",
+          "source_url": "https://gate2026.iitkgp.ac.in/",
+          "estimated_minutes": 180,
+          "difficulty": 3,
+          "topic": "Competitive Exams",
+          "skill_slug": "dsa",
+          "prerequisites": ["dsa_hard_trapping_rain_water"],
+          "optional": false,
+          "status": "draft",
+          "sequence_order": 14,
+          "extra_data": {
+            "exam_code": "GATE_CS",
+            "season": "Spring 2026"
+          }
+        }
+      ]
+    }
+  ]
+}

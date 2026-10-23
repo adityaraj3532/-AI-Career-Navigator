@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Assessment & Catalog
     ALLOW_DRAFT_CAREERS: bool = False
     ALLOW_DRAFT_QUESTIONS: bool = False
+    ALLOW_DRAFT_ROADMAPS: bool = False
+    MAX_ROADMAPS_PER_USER: int = 5
+    MAX_REPLANS_PER_WEEK: int = 3
     TEST_TIME_LIMIT_MINUTES: int = 20
     TEST_RETAKE_COOLDOWN_MINUTES: int = 30
     TEST_MAX_STARTS_PER_HOUR: int = 10
@@ -65,6 +68,10 @@ class Settings(BaseSettings):
             if self.ALLOW_DRAFT_QUESTIONS:
                 raise ValueError(
                     "ALLOW_DRAFT_QUESTIONS must never be enabled in production environments."
+                )
+            if self.ALLOW_DRAFT_ROADMAPS:
+                raise ValueError(
+                    "ALLOW_DRAFT_ROADMAPS must never be enabled in production environments."
                 )
         return self
 

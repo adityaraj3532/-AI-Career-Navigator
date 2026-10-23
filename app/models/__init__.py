@@ -35,6 +35,16 @@ from app.models.skill import (
     SkillEvidence,
     UserSkill,
 )
+from app.models.exam_cycle import ExamCycle
+from app.models.roadmap import (
+    RoadmapTemplate,
+    TemplatePhase,
+    TemplateItem,
+    Roadmap,
+    RoadmapPhase,
+    RoadmapItem,
+    ReplanHistory,
+)
 
 __all__ = [
     "User",
@@ -66,4 +76,12 @@ __all__ = [
     "Skill",
     "SkillEvidence",
     "UserSkill",
+    "ExamCycle",
+    "RoadmapTemplate",
+    "TemplatePhase",
+    "TemplateItem",
+    "Roadmap",
+    "RoadmapPhase",
+    "RoadmapItem",
+    "ReplanHistory",
 ]

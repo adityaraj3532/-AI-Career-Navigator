@@ -282,5 +282,39 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Step 2 is approved to incorporate asynchronous LLM narrative reporting via ARQ workers.
 
+---
+
+## ADR-015: Roadmap Engine Architecture (Step 1a) – Independent Cloned Roadmaps, Pure Algorithmic Scheduling, and 15% Capacity Buffer
+
+- **Options Considered**:
+  - Live pointers/foreign keys to shared template items vs Independent cloned copies (`roadmaps`, `roadmap_phases`, `roadmap_items`).
+  - LLM generates calendar timelines & schedules vs Pure deterministic topological scheduling code.
+  - 100% capacity packing vs 15% capacity buffer with overflow backlog.
+- **Choice**: **Independent Cloned User Roadmaps, Pure Algorithmic Scheduling Engine with 15% Buffer, and Strict Tested Evidence Filtering**
+- **Reason**:
+  - **Why Copied Roadmaps**:
+    - A student's action plan is a mutable, individualized, long-running state machine (`todo` $\rightarrow$ `in_progress` $\rightarrow$ `done` / `skipped`) spanning months.
+    - If user roadmaps shared rows directly with `template_items`, editing a template (e.g. updating a curriculum, modifying an estimated duration, or revising a problem) would retroactively mutate, invalidate, or shift active student schedules.
+    - Cloning template items into independent `roadmap_items` rows ensures template authors can safely publish updates (version bumps) with zero risk of breaking or altering existing active student roadmaps.
+  - **Why Scheduling is Pure Code**:
+    - LLMs frequently hallucinate calendar timelines, fail basic arithmetic bin-packing, violate strict prerequisite constraints, and introduce non-deterministic shifts upon repeated requests.
+    - A pure, unit-tested code engine guarantees:
+      1. Zero over-allocation: every scheduled week strictly obeys the user's available time.
+      2. Strict graph topological ordering: prerequisite items are guaranteed to be scheduled prior to dependents.
+      3. Sub-millisecond execution ($< 2$ms) with zero token costs and complete testability.
+      4. Replan safety: completed and skipped milestones are preserved in place, while incomplete tasks are cleanly reorganized starting from the replan date.
+  - **Why a 15% Capacity Buffer**:
+    - Real-world student schedules are subject to variance, difficult concepts, and academic interruptions.
+    - Scheduling at 100% capacity guarantees that a single difficult task creates an immediate cascade of overdue items.
+    - A 15% buffer ($W_{\text{usable}} = \text{round}(W_{\text{avail}} \times 0.85)$) provides resilient breathing room for problem-solving retries, revision, and catch-up. Overflow items are placed into a structured backlog.
+  - **Tested Evidence Only for Downweighting**:
+    - Students frequently self-declare proficiency that does not hold under empirical testing.
+    - Only verified diagnostic test performance (from `test_attempts` via the Skill Tracker) is authorized to downweight or skip beginner items; declared skills do not count.
+- **Trade-off**:
+  - Requires maintaining cloned rows in the database, slightly increasing storage footprint in exchange for isolation and historical stability.
+- **Revisit if**:
+  - Dynamic template updates are explicitly requested to offer opt-in roadmap migration tooling for users.
+
+
 
 

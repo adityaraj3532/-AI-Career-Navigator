@@ -4,6 +4,73 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-23 (Antigravity) – Versioned Roadmaps & Scheduling Engine (Step 1a)
+
+### Done
+- **Data Models & Migration**:
+  - `ExamCycle` (`app/models/exam_cycle.py`):
+    - `id` (UUID PK), `exam_id` (FK to exams), `year`, `registration_start`, `registration_end`, `exam_date`, `source_url`, `status` ("draft" | "verified"), `reviewer`, `last_verified_at`, `created_at`.
+    - `UniqueConstraint("exam_id", "year", name="uq_exam_cycle_year")`.
+  - Authoring Templates (`app/models/roadmap.py`):
+    - `RoadmapTemplate`: `id`, `career_id` (FK to careers), `version`, `title`, `description`, `status` ("draft" | "verified"), `reviewer`, `last_verified_at`, `created_at`. `UniqueConstraint("career_id", "version")`.
+    - `TemplatePhase`: `id`, `template_id` (FK), `name`, `phase_order`, `description`, `created_at`. `UniqueConstraint("template_id", "phase_order")`.
+    - `TemplateItem`: `id`, `template_id` (FK), `phase_id` (FK), `item_code`, `type` ("video" | "problem" | "project" | "certificate" | "exam" | "internship_task" | "outreach"), `title`, `source_url`, `estimated_minutes`, `difficulty` (1–3), `topic`, `skill_id` (FK to skills), `prerequisites` (JSONB list of codes), `optional` (bool), `status`, `reviewer`, `last_verified_at`, `sequence_order`, `extra_data` (JSONB), `created_at`.
+  - Independent Cloned User Roadmaps (`app/models/roadmap.py`):
+    - `Roadmap`: `id`, `user_id` (FK), `career_id` (FK), `template_id` (FK), `template_version`, `title`, `status` ("active" | "completed" | "archived"), `timezone`, `hours_per_week`, `start_date`, `target_completion_date`, `created_at`, `updated_at`.
+    - `RoadmapPhase`: `id`, `roadmap_id` (FK), `name`, `phase_order`, `description`, `created_at`.
+    - `RoadmapItem`: `id`, `roadmap_id` (FK), `phase_id` (FK), `item_code`, `type`, `title`, `source_url`, `estimated_minutes`, `difficulty`, `topic`, `skill_id` (FK), `prerequisites`, `optional`, `status` ("todo" | "in_progress" | "done" | "skipped"), `scheduled_week`, `scheduled_date`, `completed_at`, `order_index`, `extra_data`, `created_at`, `updated_at`.
+    - `ReplanHistory`: `id`, `roadmap_id` (FK), `reason`, `summary` (JSONB), `created_at`.
+  - Authored migration `alembic/versions/008_create_roadmap_and_exam_cycle_tables.py` (tested upgrade and downgrade static SQL generation).
+- **Seed Content & Prerequisite Validation**:
+  - `app/data/seed/exam_cycles.json`: seeded draft cycles for JEE Main, GATE CS, CAT, UPSC CSE with original URLs and null dates where unknown.
+  - `app/data/seed/roadmap_templates.json`: seeded SDE (`SWE`) accelerated template with 4 phases and 14 items:
+    - Curated DSA problem list across Arrays, Binary Search, Strings, Sliding Window, Trees, Graphs, DP, Two Pointers with original LeetCode problem links (no copied problem text).
+    - Videos with `source_url: null` pending verification.
+    - Personalised projects scoped by level and marked `optional: true`.
+    - Outreach items containing role titles and search keywords only, never people's names.
+  - Idempotent seeders: `scripts/seed_exam_cycles.py` and `scripts/seed_roadmaps.py`.
+  - `validate_prerequisite_graph` runs automatically on load, strictly verifying absence of missing references and circular dependencies.
+- **Verification CLI**:
+  - `scripts/verify_roadmap_item.py`: marks items verified by `--item-id`, `--item-code`, `--career`, or `--all`, recording reviewer name and verification date, and verifying parent template.
+- **Pure Scheduling Engine (`app/services/roadmap_engine.py`)**:
+  - Graph validation with `CycleError` and `MissingReferenceError`.
+  - Priority ordering: Prerequisites strictly before dependents $\rightarrow$ Skill gap descending $\rightarrow$ Difficulty ascending $\rightarrow$ Optional items last.
+  - Tested skill downweighting: beginner items downweighted only when tested level $\ge 2.0$; declared skills do not count.
+  - Weekly capacity allocation: respects $W_{\text{usable}} = \text{round}(W_{\text{avail}} \times (1 - 0.15))$. Overflow items placed in `backlog_items`. Zero hours edge-case puts all items to backlog.
+  - Timezone-aware date boundaries (ZoneInfo).
+  - Replan algorithm: preserves completed and skipped items with historical timestamps; reschedules remaining active items from replan date.
+  - Status transition state machine: enforces `todo -> in_progress -> done`, `todo -> skipped`, and `done` is final unless explicitly undone.
+- **Testing & Quality Assurance**:
+  - 14 pure unit tests in `tests/test_roadmap_engine.py`.
+  - Full project test suite execution: **111 passed, 1 skipped** (live Gemini smoke test).
+  - Code hygiene: `ruff check app tests scripts` passes cleanly with 0 errors.
+- **Documentation**:
+  - Added ADR-015 in `docs/DECISIONS.md`.
+
+### Pending Hooks & Features
+- **Roadmap Item Completion Evidence Hook**:
+  - When Step 1b implements `PATCH /v1/roadmaps/items/{id}`, marking an item `status="done"` will automatically record a low-weight roadmap evidence row (`source_type="roadmap"`, `source_id=item.id`, capped at `"intermediate"`) through the existing Skill Tracker `SkillService.repo.add_evidence` path.
+- **Kept Pending from Previous Steps**:
+  - `GET /v1/tests/history` (Adaptive Test Stage 2).
+  - Language advisor questionnaire with AI gateway integration.
+  - Asynchronous background ARQ worker for `career_skill_report_v1` AI skill report generation and caching.
+
+### Next (Step 1b upon approval)
+- Endpoints:
+  - `POST /v1/roadmaps` (generate personalized roadmap cloned from verified template).
+  - `GET /v1/roadmaps/{id}` (fetch roadmap with parts 1, 2, 3 and completion progress).
+  - `PATCH /v1/roadmaps/items/{id}` (update status, record completion, trigger low-weight skill evidence).
+  - `POST /v1/roadmaps/{id}/replan` (reschedule remaining items from today, record replan history, rate limit).
+- Ownership tests (strict HTTP 404 on cross-user access).
+
+### Do not touch
+- Editing a template must NEVER modify existing user roadmaps (cloned rows invariant).
+- Never schedule more than available minutes in any week; preserve 15% buffer.
+- Declared skills must never be used to skip or downweight roadmap items; tested evidence only.
+- Done status is final unless explicitly undone.
+
+---
+
 ## Session: 2026-10-23 (Antigravity) – Skill Tracker Engine (Step 1)
 
 ### Done
