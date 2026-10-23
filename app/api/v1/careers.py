@@ -3,11 +3,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_optional_current_user
+from app.api.deps import get_current_user, get_optional_current_user
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.career import CareerDetailResponse, CareersListResponse
+from app.schemas.compatibility import (
+    CompatibilityHistoryResponse,
+    CompatibilitySnapshotResponse,
+)
 from app.services.career_service import CareerService
+from app.services.compatibility_service import CompatibilityService
 
 router = APIRouter(prefix="/careers", tags=["Career Catalog"])
 
@@ -40,6 +45,34 @@ async def list_careers(
 
 
 @router.get(
+    "/{career_id}/compatibility",
+    response_model=CompatibilitySnapshotResponse,
+    summary="Get or generate transparent compatibility score and factor breakdown for a career",
+)
+async def get_career_compatibility(
+    career_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> CompatibilitySnapshotResponse:
+    service = CompatibilityService(session)
+    return await service.get_compatibility(user=current_user, career_id=career_id)
+
+
+@router.get(
+    "/{career_id}/compatibility/history",
+    response_model=CompatibilityHistoryResponse,
+    summary="Get append-only history of compatibility evaluations for this career",
+)
+async def get_career_compatibility_history(
+    career_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> CompatibilityHistoryResponse:
+    service = CompatibilityService(session)
+    return await service.get_compatibility_history(user=current_user, career_id=career_id)
+
+
+@router.get(
     "/{career_id}",
     response_model=CareerDetailResponse,
     summary="Get full career details with eager-loaded exams, colleges, courses, certificates, internships, and related careers",
@@ -51,3 +84,4 @@ async def get_career_detail(
 ) -> CareerDetailResponse:
     service = CareerService(session)
     return await service.get_career_detail(career_id=career_id, user=current_user)
+

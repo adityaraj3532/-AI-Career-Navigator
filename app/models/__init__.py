@@ -1,5 +1,6 @@
 from app.models.user import User
 from app.models.auth import RefreshToken
+from app.models.profile import StudentProfile
 from app.models.career import (
     Career,
     Exam,
@@ -7,6 +8,8 @@ from app.models.career import (
     Course,
     Certificate,
     Internship,
+    UserShortlist,
+    UserCareerCompatibilitySnapshot,
     career_exams,
     career_colleges,
     career_courses,
@@ -26,12 +29,15 @@ from app.models.assessment import (
 __all__ = [
     "User",
     "RefreshToken",
+    "StudentProfile",
     "Career",
     "Exam",
     "College",
     "Course",
     "Certificate",
     "Internship",
+    "UserShortlist",
+    "UserCareerCompatibilitySnapshot",
     "career_exams",
     "career_colleges",
     "career_courses",

@@ -272,7 +272,13 @@
         "max_per_month": 120000
       },
       "duration_months": 2,
-      "locations": ["Bengaluru", "Hyderabad", "Pune", "Gurugram", "Remote"],
+      "locations": [
+        "Bengaluru",
+        "Hyderabad",
+        "Pune",
+        "Gurugram",
+        "Remote"
+      ],
       "description": "Hands-on software development role building production microservices, REST/GraphQL APIs, unit testing, and contributing to CI/CD pipelines alongside senior mentors.",
       "source_url": "https://nasscom.in",
       "status": "draft"
@@ -287,7 +293,12 @@
         "max_per_month": 60000
       },
       "duration_months": 3,
-      "locations": ["Bengaluru", "Mumbai", "Gurugram", "Remote"],
+      "locations": [
+        "Bengaluru",
+        "Mumbai",
+        "Gurugram",
+        "Remote"
+      ],
       "description": "Internship focused on querying production data warehouses with SQL, constructing automated executive dashboards in PowerBI/Tableau, and conducting cohort retention analysis.",
       "source_url": "https://nasscom.in",
       "status": "draft"
@@ -302,7 +313,11 @@
         "max_per_month": 150000
       },
       "duration_months": 3,
-      "locations": ["Bengaluru", "Hyderabad", "Delhi NCR"],
+      "locations": [
+        "Bengaluru",
+        "Hyderabad",
+        "Delhi NCR"
+      ],
       "description": "Research and applied prototyping role experimenting with transformer fine-tuning, embedding generation, synthetic benchmark evaluation, and latency profiling.",
       "source_url": "https://nasscom.in",
       "status": "draft"
@@ -317,7 +332,11 @@
         "max_per_month": 70000
       },
       "duration_months": 3,
-      "locations": ["Bengaluru", "Mumbai", "Remote"],
+      "locations": [
+        "Bengaluru",
+        "Mumbai",
+        "Remote"
+      ],
       "description": "Design internship collaborating with product managers and engineers to conduct user interviews, iterate responsive UI wireframes in Figma, and build accessible component libraries.",
       "source_url": "https://nasscom.in",
       "status": "draft"
@@ -332,7 +351,9 @@
         "max_per_month": 35000
       },
       "duration_months": 12,
-      "locations": ["Teaching Hospitals Across India"],
+      "locations": [
+        "Teaching Hospitals Across India"
+      ],
       "description": "Stipendiary rotatory internship fulfilling statutory requirements under the National Medical Commission across internal medicine, obstetrics, pediatrics, surgery, and emergency care.",
       "source_url": "https://www.nmc.org.in",
       "status": "draft"
@@ -347,7 +368,9 @@
         "max_per_month": 30000
       },
       "duration_months": 24,
-      "locations": ["Pan-India with ICAI Chartered Accounting Firms"],
+      "locations": [
+        "Pan-India with ICAI Chartered Accounting Firms"
+      ],
       "description": "Statutorily mandated two-year practical training under a practicing Chartered Accountant firm conducting statutory audits, internal controls testing, and tax compliance.",
       "source_url": "https://www.icai.org",
       "status": "draft"
@@ -362,7 +385,12 @@
         "max_per_month": 45000
       },
       "duration_months": 2,
-      "locations": ["Pune", "Chennai", "Bengaluru", "Ahmedabad"],
+      "locations": [
+        "Pune",
+        "Chennai",
+        "Bengaluru",
+        "Ahmedabad"
+      ],
       "description": "Industrial internship supporting CAD assembly design, GD&T drawing production, structural finite element analysis, and shop-floor quality inspection.",
       "source_url": "https://www.aicte-india.org",
       "status": "draft"
@@ -388,17 +416,43 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://nasscom.in",
-        "entry": { "min": 600000, "max": 1400000 },
-        "mid": { "min": 1500000, "max": 3000000 },
-        "senior": { "min": 3500000, "max": 7000000 }
+        "entry": {
+          "min": 600000,
+          "max": 1400000
+        },
+        "mid": {
+          "min": 1500000,
+          "max": 3000000
+        },
+        "senior": {
+          "min": 3500000,
+          "max": 7000000
+        }
       },
       "demand": "very_high",
+      "time_to_job_ready_months": 48,
+      "entrance_difficulty": "moderate",
       "required_skills": [
-        { "name": "Data Structures & Algorithms", "level": "advanced" },
-        { "name": "Backend Frameworks (FastAPI / Spring / Go)", "level": "advanced" },
-        { "name": "Relational & NoSQL Databases", "level": "intermediate" },
-        { "name": "System Architecture & Design", "level": "intermediate" },
-        { "name": "CI/CD & Cloud Infrastructure", "level": "intermediate" }
+        {
+          "name": "Data Structures & Algorithms",
+          "level": "advanced"
+        },
+        {
+          "name": "Backend Frameworks (FastAPI / Spring / Go)",
+          "level": "advanced"
+        },
+        {
+          "name": "Relational & NoSQL Databases",
+          "level": "intermediate"
+        },
+        {
+          "name": "System Architecture & Design",
+          "level": "intermediate"
+        },
+        {
+          "name": "CI/CD & Cloud Infrastructure",
+          "level": "intermediate"
+        }
       ],
       "education_paths": [
         {
@@ -412,15 +466,38 @@
           "description": "Foundational 4-year degree covering algorithms, operating systems, databases, and software engineering."
         }
       ],
-      "dimension_weights": { "R": 40, "I": 90, "A": 35, "S": 30, "E": 45, "C": 75 },
+      "dimension_weights": {
+        "R": 40,
+        "I": 90,
+        "A": 35,
+        "S": 30,
+        "E": 45,
+        "C": 75
+      },
       "source_url": "https://nasscom.in",
       "status": "draft",
-      "exam_codes": ["JEE_MAIN", "JEE_ADVANCED", "GATE"],
-      "college_names": ["Indian Institute of Technology Bombay", "Indian Institute of Technology Madras"],
-      "course_codes": ["BTECH_CSE"],
-      "certificate_codes": ["AWS_SOL_ARCH"],
-      "internship_codes": ["SDE_INTERNSHIP"],
-      "related_career_codes": ["DATA_ANALYST", "AI_ML_ENGINEER"]
+      "exam_codes": [
+        "JEE_MAIN",
+        "JEE_ADVANCED",
+        "GATE"
+      ],
+      "college_names": [
+        "Indian Institute of Technology Bombay",
+        "Indian Institute of Technology Madras"
+      ],
+      "course_codes": [
+        "BTECH_CSE"
+      ],
+      "certificate_codes": [
+        "AWS_SOL_ARCH"
+      ],
+      "internship_codes": [
+        "SDE_INTERNSHIP"
+      ],
+      "related_career_codes": [
+        "DATA_ANALYST",
+        "AI_ML_ENGINEER"
+      ]
     },
     {
       "code": "DATA_ANALYST",
@@ -440,17 +517,41 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://nasscom.in",
-        "entry": { "min": 450000, "max": 900000 },
-        "mid": { "min": 1000000, "max": 2000000 },
-        "senior": { "min": 2200000, "max": 4200000 }
+        "entry": {
+          "min": 450000,
+          "max": 900000
+        },
+        "mid": {
+          "min": 1000000,
+          "max": 2000000
+        },
+        "senior": {
+          "min": 2200000,
+          "max": 4200000
+        }
       },
       "demand": "high",
       "required_skills": [
-        { "name": "Advanced SQL & Data Modeling", "level": "advanced" },
-        { "name": "Data Visualization (Tableau / PowerBI)", "level": "advanced" },
-        { "name": "Python for Data Analysis (Pandas, NumPy)", "level": "intermediate" },
-        { "name": "Statistical Analysis & A/B Testing", "level": "intermediate" },
-        { "name": "Business Acumen & Storytelling", "level": "advanced" }
+        {
+          "name": "Advanced SQL & Data Modeling",
+          "level": "advanced"
+        },
+        {
+          "name": "Data Visualization (Tableau / PowerBI)",
+          "level": "advanced"
+        },
+        {
+          "name": "Python for Data Analysis (Pandas, NumPy)",
+          "level": "intermediate"
+        },
+        {
+          "name": "Statistical Analysis & A/B Testing",
+          "level": "intermediate"
+        },
+        {
+          "name": "Business Acumen & Storytelling",
+          "level": "advanced"
+        }
       ],
       "education_paths": [
         {
@@ -464,15 +565,38 @@
           "description": "Focus on data manipulation, database querying, and statistical inference."
         }
       ],
-      "dimension_weights": { "R": 20, "I": 95, "A": 40, "S": 30, "E": 50, "C": 70 },
+      "dimension_weights": {
+        "R": 20,
+        "I": 95,
+        "A": 40,
+        "S": 30,
+        "E": 50,
+        "C": 70
+      },
       "source_url": "https://nasscom.in",
       "status": "draft",
-      "exam_codes": ["GATE", "JEE_MAIN"],
-      "college_names": ["Indian Institute of Technology Madras"],
-      "course_codes": ["BTECH_CSE"],
-      "certificate_codes": ["GOOGLE_DATA_ANALYTICS"],
-      "internship_codes": ["DATA_ANALYST_INTERN"],
-      "related_career_codes": ["SOFTWARE_DEVELOPER", "AI_ML_ENGINEER"]
+      "exam_codes": [
+        "GATE",
+        "JEE_MAIN"
+      ],
+      "college_names": [
+        "Indian Institute of Technology Madras"
+      ],
+      "course_codes": [
+        "BTECH_CSE"
+      ],
+      "certificate_codes": [
+        "GOOGLE_DATA_ANALYTICS"
+      ],
+      "internship_codes": [
+        "DATA_ANALYST_INTERN"
+      ],
+      "related_career_codes": [
+        "SOFTWARE_DEVELOPER",
+        "AI_ML_ENGINEER"
+      ],
+      "time_to_job_ready_months": 36,
+      "entrance_difficulty": "moderate"
     },
     {
       "code": "AI_ML_ENGINEER",
@@ -492,17 +616,43 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://nasscom.in",
-        "entry": { "min": 800000, "max": 1600000 },
-        "mid": { "min": 1800000, "max": 3600000 },
-        "senior": { "min": 4000000, "max": 8500000 }
+        "entry": {
+          "min": 800000,
+          "max": 1600000
+        },
+        "mid": {
+          "min": 1800000,
+          "max": 3600000
+        },
+        "senior": {
+          "min": 4000000,
+          "max": 8500000
+        }
       },
       "demand": "very_high",
+      "time_to_job_ready_months": 60,
+      "entrance_difficulty": "high",
       "required_skills": [
-        { "name": "Machine Learning Foundations & PyTorch", "level": "expert" },
-        { "name": "Linear Algebra, Calculus & Probability", "level": "advanced" },
-        { "name": "NLP & Large Language Models", "level": "advanced" },
-        { "name": "MLOps, Docker & Model Serving", "level": "intermediate" },
-        { "name": "High-Performance Computing (CUDA, Triton)", "level": "intermediate" }
+        {
+          "name": "Machine Learning Foundations & PyTorch",
+          "level": "expert"
+        },
+        {
+          "name": "Linear Algebra, Calculus & Probability",
+          "level": "advanced"
+        },
+        {
+          "name": "NLP & Large Language Models",
+          "level": "advanced"
+        },
+        {
+          "name": "MLOps, Docker & Model Serving",
+          "level": "intermediate"
+        },
+        {
+          "name": "High-Performance Computing (CUDA, Triton)",
+          "level": "intermediate"
+        }
       ],
       "education_paths": [
         {
@@ -516,15 +666,39 @@
           "description": "Deep coursework in statistical learning theory, computer vision, and neural network theory."
         }
       ],
-      "dimension_weights": { "R": 30, "I": 95, "A": 50, "S": 20, "E": 45, "C": 60 },
+      "dimension_weights": {
+        "R": 30,
+        "I": 95,
+        "A": 50,
+        "S": 20,
+        "E": 45,
+        "C": 60
+      },
       "source_url": "https://nasscom.in",
       "status": "draft",
-      "exam_codes": ["JEE_MAIN", "JEE_ADVANCED", "GATE"],
-      "college_names": ["Indian Institute of Technology Bombay", "Indian Institute of Technology Madras"],
-      "course_codes": ["BTECH_CSE", "MTECH_AI"],
-      "certificate_codes": ["DEEP_LEARNING_SPEC"],
-      "internship_codes": ["AI_RESEARCH_INTERN"],
-      "related_career_codes": ["SOFTWARE_DEVELOPER", "DATA_ANALYST"]
+      "exam_codes": [
+        "JEE_MAIN",
+        "JEE_ADVANCED",
+        "GATE"
+      ],
+      "college_names": [
+        "Indian Institute of Technology Bombay",
+        "Indian Institute of Technology Madras"
+      ],
+      "course_codes": [
+        "BTECH_CSE",
+        "MTECH_AI"
+      ],
+      "certificate_codes": [
+        "DEEP_LEARNING_SPEC"
+      ],
+      "internship_codes": [
+        "AI_RESEARCH_INTERN"
+      ],
+      "related_career_codes": [
+        "SOFTWARE_DEVELOPER",
+        "DATA_ANALYST"
+      ]
     },
     {
       "code": "UI_UX_DESIGNER",
@@ -544,17 +718,41 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://nasscom.in",
-        "entry": { "min": 450000, "max": 950000 },
-        "mid": { "min": 1100000, "max": 2200000 },
-        "senior": { "min": 2500000, "max": 5000000 }
+        "entry": {
+          "min": 450000,
+          "max": 950000
+        },
+        "mid": {
+          "min": 1100000,
+          "max": 2200000
+        },
+        "senior": {
+          "min": 2500000,
+          "max": 5000000
+        }
       },
       "demand": "high",
       "required_skills": [
-        { "name": "User Research & Usability Testing", "level": "advanced" },
-        { "name": "Figma & Design Systems", "level": "expert" },
-        { "name": "Information Architecture & Wireframing", "level": "advanced" },
-        { "name": "Interaction Design & Prototyping", "level": "advanced" },
-        { "name": "Visual Design & Typography", "level": "advanced" }
+        {
+          "name": "User Research & Usability Testing",
+          "level": "advanced"
+        },
+        {
+          "name": "Figma & Design Systems",
+          "level": "expert"
+        },
+        {
+          "name": "Information Architecture & Wireframing",
+          "level": "advanced"
+        },
+        {
+          "name": "Interaction Design & Prototyping",
+          "level": "advanced"
+        },
+        {
+          "name": "Visual Design & Typography",
+          "level": "advanced"
+        }
       ],
       "education_paths": [
         {
@@ -568,15 +766,37 @@
           "description": "Hands-on studio design curriculum covering ergonomic principles and interactive digital media."
         }
       ],
-      "dimension_weights": { "R": 15, "I": 65, "A": 95, "S": 55, "E": 45, "C": 35 },
+      "dimension_weights": {
+        "R": 15,
+        "I": 65,
+        "A": 95,
+        "S": 55,
+        "E": 45,
+        "C": 35
+      },
       "source_url": "https://nasscom.in",
       "status": "draft",
-      "exam_codes": ["UCEED"],
-      "college_names": ["National Institute of Design Ahmedabad", "Indian Institute of Technology Bombay"],
-      "course_codes": ["BDES_PROD_DESIGN"],
-      "certificate_codes": ["GOOGLE_UX_DESIGN"],
-      "internship_codes": ["PRODUCT_DESIGN_INTERN"],
-      "related_career_codes": ["SOFTWARE_DEVELOPER"]
+      "exam_codes": [
+        "UCEED"
+      ],
+      "college_names": [
+        "National Institute of Design Ahmedabad",
+        "Indian Institute of Technology Bombay"
+      ],
+      "course_codes": [
+        "BDES_PROD_DESIGN"
+      ],
+      "certificate_codes": [
+        "GOOGLE_UX_DESIGN"
+      ],
+      "internship_codes": [
+        "PRODUCT_DESIGN_INTERN"
+      ],
+      "related_career_codes": [
+        "SOFTWARE_DEVELOPER"
+      ],
+      "time_to_job_ready_months": 48,
+      "entrance_difficulty": "moderate"
     },
     {
       "code": "DOCTOR",
@@ -597,17 +817,43 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://www.nmc.org.in",
-        "entry": { "min": 720000, "max": 1300000 },
-        "mid": { "min": 1600000, "max": 3200000 },
-        "senior": { "min": 3500000, "max": 7500000 }
+        "entry": {
+          "min": 720000,
+          "max": 1300000
+        },
+        "mid": {
+          "min": 1600000,
+          "max": 3200000
+        },
+        "senior": {
+          "min": 3500000,
+          "max": 7500000
+        }
       },
       "demand": "very_high",
+      "time_to_job_ready_months": 66,
+      "entrance_difficulty": "extreme",
       "required_skills": [
-        { "name": "Clinical Diagnosis & Patient Assessment", "level": "expert" },
-        { "name": "Pharmacology & Therapeutics", "level": "advanced" },
-        { "name": "Emergency Medical Resuscitation", "level": "advanced" },
-        { "name": "Empathetic Communication & Bedside Manner", "level": "expert" },
-        { "name": "Medical Ethics & Medicolegal Protocols", "level": "advanced" }
+        {
+          "name": "Clinical Diagnosis & Patient Assessment",
+          "level": "expert"
+        },
+        {
+          "name": "Pharmacology & Therapeutics",
+          "level": "advanced"
+        },
+        {
+          "name": "Emergency Medical Resuscitation",
+          "level": "advanced"
+        },
+        {
+          "name": "Empathetic Communication & Bedside Manner",
+          "level": "expert"
+        },
+        {
+          "name": "Medical Ethics & Medicolegal Protocols",
+          "level": "advanced"
+        }
       ],
       "education_paths": [
         {
@@ -626,14 +872,29 @@
           "description": "3-year intensive clinical residency in a specialized branch of medicine or surgery."
         }
       ],
-      "dimension_weights": { "R": 40, "I": 90, "A": 20, "S": 95, "E": 40, "C": 55 },
+      "dimension_weights": {
+        "R": 40,
+        "I": 90,
+        "A": 20,
+        "S": 95,
+        "E": 40,
+        "C": 55
+      },
       "source_url": "https://www.nmc.org.in",
       "status": "draft",
-      "exam_codes": ["NEET_UG"],
-      "college_names": ["All India Institute of Medical Sciences New Delhi"],
-      "course_codes": ["MBBS_DEGREE"],
+      "exam_codes": [
+        "NEET_UG"
+      ],
+      "college_names": [
+        "All India Institute of Medical Sciences New Delhi"
+      ],
+      "course_codes": [
+        "MBBS_DEGREE"
+      ],
       "certificate_codes": [],
-      "internship_codes": ["CLINICAL_ROTATION_INTERN"],
+      "internship_codes": [
+        "CLINICAL_ROTATION_INTERN"
+      ],
       "related_career_codes": []
     },
     {
@@ -655,17 +916,41 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://www.icai.org",
-        "entry": { "min": 750000, "max": 1400000 },
-        "mid": { "min": 1500000, "max": 2800000 },
-        "senior": { "min": 3200000, "max": 6500000 }
+        "entry": {
+          "min": 750000,
+          "max": 1400000
+        },
+        "mid": {
+          "min": 1500000,
+          "max": 2800000
+        },
+        "senior": {
+          "min": 3200000,
+          "max": 6500000
+        }
       },
       "demand": "high",
       "required_skills": [
-        { "name": "Statutory Auditing & Assurance", "level": "expert" },
-        { "name": "Direct & Indirect Tax Legislation", "level": "expert" },
-        { "name": "Financial Modeling & Valuation", "level": "advanced" },
-        { "name": "Indian Accounting Standards (Ind AS) & IFRS", "level": "expert" },
-        { "name": "Corporate Governance & Company Law", "level": "advanced" }
+        {
+          "name": "Statutory Auditing & Assurance",
+          "level": "expert"
+        },
+        {
+          "name": "Direct & Indirect Tax Legislation",
+          "level": "expert"
+        },
+        {
+          "name": "Financial Modeling & Valuation",
+          "level": "advanced"
+        },
+        {
+          "name": "Indian Accounting Standards (Ind AS) & IFRS",
+          "level": "expert"
+        },
+        {
+          "name": "Corporate Governance & Company Law",
+          "level": "advanced"
+        }
       ],
       "education_paths": [
         {
@@ -679,15 +964,35 @@
           "description": "Rigorous national examination curriculum integrated with 2 years of mandatory practical training."
         }
       ],
-      "dimension_weights": { "R": 10, "I": 70, "A": 15, "S": 35, "E": 80, "C": 95 },
+      "dimension_weights": {
+        "R": 10,
+        "I": 70,
+        "A": 15,
+        "S": 35,
+        "E": 80,
+        "C": 95
+      },
       "source_url": "https://www.icai.org",
       "status": "draft",
-      "exam_codes": ["CA_FOUNDATION"],
-      "college_names": ["Institute of Chartered Accountants of India"],
-      "course_codes": ["CA_CURRICULUM"],
+      "exam_codes": [
+        "CA_FOUNDATION"
+      ],
+      "college_names": [
+        "Institute of Chartered Accountants of India"
+      ],
+      "course_codes": [
+        "CA_CURRICULUM"
+      ],
       "certificate_codes": [],
-      "internship_codes": ["CA_ARTICLESHIP"],
-      "related_career_codes": ["CIVIL_SERVICES", "DATA_ANALYST"]
+      "internship_codes": [
+        "CA_ARTICLESHIP"
+      ],
+      "related_career_codes": [
+        "CIVIL_SERVICES",
+        "DATA_ANALYST"
+      ],
+      "time_to_job_ready_months": 54,
+      "entrance_difficulty": "high"
     },
     {
       "code": "CIVIL_SERVICES",
@@ -708,17 +1013,41 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://upsc.gov.in",
-        "entry": { "min": 672000, "max": 900000 },
-        "mid": { "min": 1200000, "max": 1800000 },
-        "senior": { "min": 2200000, "max": 3200000 }
+        "entry": {
+          "min": 672000,
+          "max": 900000
+        },
+        "mid": {
+          "min": 1200000,
+          "max": 1800000
+        },
+        "senior": {
+          "min": 2200000,
+          "max": 3200000
+        }
       },
       "demand": "steady",
       "required_skills": [
-        { "name": "Public Administration & Governance", "level": "expert" },
-        { "name": "Constitutional Law & Administrative Rules", "level": "expert" },
-        { "name": "Crisis & Disaster Management", "level": "advanced" },
-        { "name": "Stakeholder Diplomacy & Negotiation", "level": "expert" },
-        { "name": "Public Financial Administration", "level": "advanced" }
+        {
+          "name": "Public Administration & Governance",
+          "level": "expert"
+        },
+        {
+          "name": "Constitutional Law & Administrative Rules",
+          "level": "expert"
+        },
+        {
+          "name": "Crisis & Disaster Management",
+          "level": "advanced"
+        },
+        {
+          "name": "Stakeholder Diplomacy & Negotiation",
+          "level": "expert"
+        },
+        {
+          "name": "Public Financial Administration",
+          "level": "advanced"
+        }
       ],
       "education_paths": [
         {
@@ -732,15 +1061,30 @@
           "description": "Completion of an accredited undergraduate degree, required for eligibility in UPSC Civil Services Examination."
         }
       ],
-      "dimension_weights": { "R": 25, "I": 65, "A": 30, "S": 75, "E": 90, "C": 70 },
+      "dimension_weights": {
+        "R": 25,
+        "I": 65,
+        "A": 30,
+        "S": 75,
+        "E": 90,
+        "C": 70
+      },
       "source_url": "https://upsc.gov.in",
       "status": "draft",
-      "exam_codes": ["UPSC_CSE"],
-      "college_names": ["St. Stephen's College"],
+      "exam_codes": [
+        "UPSC_CSE"
+      ],
+      "college_names": [
+        "St. Stephen's College"
+      ],
       "course_codes": [],
       "certificate_codes": [],
       "internship_codes": [],
-      "related_career_codes": ["CHARTERED_ACCOUNTANT"]
+      "related_career_codes": [
+        "CHARTERED_ACCOUNTANT"
+      ],
+      "time_to_job_ready_months": 48,
+      "entrance_difficulty": "extreme"
     },
     {
       "code": "MECHANICAL_ENGINEER",
@@ -761,17 +1105,41 @@
         "is_approximate": true,
         "as_of_year": 2026,
         "source_url": "https://www.aicte-india.org",
-        "entry": { "min": 420000, "max": 800000 },
-        "mid": { "min": 900000, "max": 1800000 },
-        "senior": { "min": 2000000, "max": 4000000 }
+        "entry": {
+          "min": 420000,
+          "max": 800000
+        },
+        "mid": {
+          "min": 900000,
+          "max": 1800000
+        },
+        "senior": {
+          "min": 2000000,
+          "max": 4000000
+        }
       },
       "demand": "moderate",
       "required_skills": [
-        { "name": "3D CAD Modeling (SOLIDWORKS / CATIA)", "level": "expert" },
-        { "name": "Thermodynamics & Heat Transfer", "level": "advanced" },
-        { "name": "Finite Element Analysis (FEA / ANSYS)", "level": "advanced" },
-        { "name": "Manufacturing Processes & Materials Science", "level": "advanced" },
-        { "name": "Geometric Dimensioning & Tolerancing (GD&T)", "level": "advanced" }
+        {
+          "name": "3D CAD Modeling (SOLIDWORKS / CATIA)",
+          "level": "expert"
+        },
+        {
+          "name": "Thermodynamics & Heat Transfer",
+          "level": "advanced"
+        },
+        {
+          "name": "Finite Element Analysis (FEA / ANSYS)",
+          "level": "advanced"
+        },
+        {
+          "name": "Manufacturing Processes & Materials Science",
+          "level": "advanced"
+        },
+        {
+          "name": "Geometric Dimensioning & Tolerancing (GD&T)",
+          "level": "advanced"
+        }
       ],
       "education_paths": [
         {
@@ -785,15 +1153,39 @@
           "description": "4-year engineering curriculum covering kinematics, machine design, fluid mechanics, and automation."
         }
       ],
-      "dimension_weights": { "R": 95, "I": 75, "A": 30, "S": 20, "E": 40, "C": 60 },
+      "dimension_weights": {
+        "R": 95,
+        "I": 75,
+        "A": 30,
+        "S": 20,
+        "E": 40,
+        "C": 60
+      },
       "source_url": "https://www.aicte-india.org",
       "status": "draft",
-      "exam_codes": ["JEE_MAIN", "JEE_ADVANCED", "GATE"],
-      "college_names": ["Indian Institute of Technology Bombay", "Indian Institute of Technology Madras"],
-      "course_codes": ["BTECH_MECH"],
-      "certificate_codes": ["CSWP_SOLIDWORKS"],
-      "internship_codes": ["MECHANICAL_INTERN"],
-      "related_career_codes": ["SOFTWARE_DEVELOPER"]
+      "exam_codes": [
+        "JEE_MAIN",
+        "JEE_ADVANCED",
+        "GATE"
+      ],
+      "college_names": [
+        "Indian Institute of Technology Bombay",
+        "Indian Institute of Technology Madras"
+      ],
+      "course_codes": [
+        "BTECH_MECH"
+      ],
+      "certificate_codes": [
+        "CSWP_SOLIDWORKS"
+      ],
+      "internship_codes": [
+        "MECHANICAL_INTERN"
+      ],
+      "related_career_codes": [
+        "SOFTWARE_DEVELOPER"
+      ],
+      "time_to_job_ready_months": 48,
+      "entrance_difficulty": "moderate"
     }
   ]
 }

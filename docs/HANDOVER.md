@@ -4,6 +4,84 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-23 (Antigravity) – Transparent Compatibility Service, Shortlist & Career Comparison (Stage 1)
+
+### Done
+- **Data Models & Migration**:
+  - `Career` model (`app/models/career.py`):
+    - Added `time_to_job_ready_months` (`Integer`, nullable).
+    - Added `entrance_difficulty` (`String(32)`, nullable).
+  - `StudentProfile` model (`app/models/profile.py`):
+    - `id` (UUID PK), `user_id` (UUID FK to `users.id` with `unique=True`, `ondelete="CASCADE"`).
+    - `name` (String 128), `budget_level` (String 32: low/medium/high), `hours_available_per_week` (Integer).
+    - `subjects_of_interest` (`JSONB`, default `[]`), `skills` (`JSONB`, default `[]`).
+    - `created_at`, `updated_at`.
+  - `UserShortlist` model (`app/models/career.py`):
+    - `user_id` (UUID FK, composite PK), `career_id` (UUID FK, composite PK), `created_at`.
+    - `ON DELETE CASCADE`, indexed on both foreign keys.
+  - `UserCareerCompatibilitySnapshot` model (`app/models/career.py`):
+    - `id` (UUID PK), `user_id` (UUID FK), `career_id` (UUID FK), `overall_score` (Integer 0–100).
+    - `factor_breakdown` (`JSONB`), `strengths` (`JSONB`), `gaps` (`JSONB`), `weights_version` (Integer, default 1).
+    - `inputs_hash` (`String(64)`, indexed), `explanation_status` (`String(32)`, default "pending").
+    - `ai_explanation` (`Text`, nullable), `created_at`.
+    - Composite index `ix_user_career_comp_latest` on `(user_id, career_id, created_at DESC)`.
+  - Alembic migration `005_create_compatibility_shortlist_and_profile_tables.py` (tested for both upgrade and downgrade static SQL generation).
+- **Seed Catalog & Seeder Updates**:
+  - Populated `time_to_job_ready_months` and `entrance_difficulty` across all 8 careers in `app/data/seed/career_catalog.json`.
+  - Updated `scripts/seed_career_catalog.py` to persist these attributes idempotently.
+- **Pure Scoring Function & Re-normalisation Logic (`app/services/compatibility_service.py`)**:
+  - Versioned weights config: `COMPATIBILITY_WEIGHTS_V1` (interest_fit: 30, skills: 25, subjects: 20, hours: 15, budget: 10).
+  - Pure calculation function `compute_career_compatibility`:
+    - Dynamic missing-factor detection: factors with no data are excluded and remaining present weights re-normalise such that $\sum w'_f = 1.0$. Missing data is **never scored as 0**.
+    - Returns `(overall_score, data_completeness, excluded_factors, factor_breakdown, strengths, gaps)`.
+    - Boundary safety verified: clamped within $[0, 100]$.
+  - SHA-256 `inputs_hash` covering `(career_id, weights_version, assessment_result_id, budget_level, hours_available_per_week, subjects_of_interest, skills)`. Deduplicates snapshot rows when inputs are unchanged.
+- **Repositories & Service Layer**:
+  - `ProfileRepository` (`app/repositories/profile_repository.py`) & `ProfileService` (`app/services/profile_service.py`).
+  - `ShortlistRepository` (`app/repositories/shortlist_repository.py`).
+  - `CompatibilityRepository` (`app/repositories/compatibility_repository.py`).
+  - `CompatibilityService` (`app/services/compatibility_service.py`).
+- **API Endpoints**:
+  - `GET /v1/profile` & `PUT /v1/profile`
+  - `POST /v1/shortlist/{career_id}` & `DELETE /v1/shortlist/{career_id}` (idempotent, max 20 limit, verified career check)
+  - `GET /v1/shortlist` (returns shortlisted items with compatibility scores)
+  - `GET /v1/careers/{career_id}/compatibility` (evaluates score, deduplicates snapshots via `inputs_hash`)
+  - `GET /v1/careers/{career_id}/compatibility/history` (ordered by `created_at DESC`)
+  - `POST /v1/compare` (accepts 2–4 distinct verified career IDs, deduplicates, handles null college fees cleanly, returns multi-dimensional comparison matrix)
+- **Testing & Verification**:
+  - Created 11 comprehensive tests in `tests/test_compatibility_stage1.py`:
+    - 5 pure scoring cases: all factors present, 1 missing, 2 missing, all missing, boundary 0% and 100%.
+    - Weight re-normalisation math verification ($\sum w'_f = 1.0$).
+    - `inputs_hash` determinism, sensitivity, and list order invariance.
+    - Profile get & put integration.
+    - Snapshot creation and `inputs_hash` deduplication.
+    - History ordering (`created_at DESC`).
+    - Shortlist idempotency, 20-item cap enforcement, and strict user ownership isolation.
+    - Compare endpoint 2–4 bounds, deduplication, and non-verified 404 rejection.
+    - Unverified career rejection gate (HTTP 404).
+  - Full project test suite execution: **65 passed, 1 skipped** (live Gemini smoke test).
+  - Code hygiene: `ruff check app tests` passes with 0 warnings/errors.
+- **Documentation**:
+  - Added ADR-012 in `docs/DECISIONS.md`.
+
+### In progress
+- Stage 1 complete. Awaiting user review before Stage 2 (ARQ asynchronous AI explanation job for snapshots and qualitative comparison verdicts).
+
+### Broken or risky
+- None. All 65 tests pass cleanly.
+
+### Next (Stage 2 upon approval)
+- Background ARQ job worker generating personalized AI explanations for `UserCareerCompatibilitySnapshot` with status transitions (`pending` -> `completed` / `failed`).
+- LLM qualitative comparison verdict generation for `POST /v1/compare` (strictly decoupled from deterministic scores).
+
+### Do not touch
+- Deterministic scoring rule: AI never calculates, overrides, or alters compatibility numbers or comparison metrics.
+- Missing factors are never scored as 0.
+- Strict verification gate: Only verified careers can be shortlisted, evaluated, or compared.
+- Production auth: Bearer JWT only.
+
+---
+
 ## Session: 2026-10-23 (Antigravity) – Career Catalog Step 1a (Normalized Tables, Seeding & Exploration Endpoints)
 
 ### Done

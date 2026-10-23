@@ -203,3 +203,25 @@ This document tracks all foundational technology and architecture choices, evalu
   - Requires maintaining explicit junction tables and structured seed catalogs.
 - **Revisit if**:
   - Catalog requirements pivot to purely unvetted third-party web scraper feeds without data verification guarantees.
+
+---
+
+## ADR-012: Career Compatibility Service, Shortlisting & Comparison (Stage 1)
+
+- **Options Considered**:
+  - Mutable single compatibility score column on user-career junction vs Append-only snapshots (`user_career_compatibility_snapshots`).
+  - Score missing data as 0 vs Exclude missing factors and re-normalise remaining weights to 1.0.
+  - LLM computes compatibility score vs Deterministic pure scoring function with decoupled AI explanation.
+- **Choice**: **Deterministic Pure Function Scoring with Missing Factor Re-normalisation, Append-Only Snapshots with `inputs_hash` Deduplication, and Hard Shortlist Invariants**
+- **Reason**:
+  - **Transparent Re-normalisation Math**: Scoring students on unprovided parameters (e.g. penalized with 0 because they haven't filled budget or hours yet) severely distorts guidance. When a factor has no user input, it is excluded and remaining weights are re-normalised ($W_P = \sum_{f \in P} w_f$, $w'_f = w_f / W_P$, $\sum w'_f = 1.0$). The API explicitly reports `data_completeness` (0–100) and `excluded_factors`.
+  - **Deterministic Pure Function**: Scoring calculation is 100% deterministic, pure, and fast ($< 5$ms). The AI never touches, calculates, or overrides the numbers.
+  - **Append-Only Snapshots & Deduplication**: Compatibility changes as a student's skills, assessment results, or availability evolve. Snapshots are append-only to preserve vocational progression history. To prevent database bloat, an SHA-256 `inputs_hash` covers `(career_id, weights_version, assessment_result_id, budget_level, hours_available_per_week, subjects_of_interest, skills)`. If the hash is unchanged, the existing snapshot is returned without inserting a duplicate record.
+  - **Decoupled Scoring & AI Generation**: Scoring is synchronous in-request. AI qualitative commentary is decoupled into background workers (Stage 2); until then, snapshots default to `explanation_status="pending"` with a structured deterministic template.
+  - **Shortlist Limit & Idempotency**: Bounded at max 20 careers per user. `POST /v1/shortlist/{id}` and `DELETE /v1/shortlist/{id}` are strictly idempotent. Unverified careers return 404.
+  - **Comparison Invariant**: Accepts 2–4 distinct verified career IDs, deduplicates input IDs, and handles null college fees cleanly.
+- **Trade-off**:
+  - Requires maintaining versioned weight configurations (`weights_version`) and explicit hash generation across profile schemas.
+- **Revisit if**:
+  - Never. Mathematical transparency and auditability are non-negotiable requirements for educational counseling.
+

@@ -189,6 +189,8 @@ async def seed_career_catalog(session: AsyncSession, json_path: Path) -> Dict[st
             career.day_in_life = item.get("day_in_life")
             career.salary_ranges = item.get("salary_ranges")
             career.demand = item.get("demand", "moderate")
+            career.time_to_job_ready_months = item.get("time_to_job_ready_months")
+            career.entrance_difficulty = item.get("entrance_difficulty")
             career.required_skills = item.get("required_skills", [])
             career.education_paths = item.get("education_paths", [])
             career.source_url = item["source_url"]
@@ -204,6 +206,8 @@ async def seed_career_catalog(session: AsyncSession, json_path: Path) -> Dict[st
                 day_in_life=item.get("day_in_life"),
                 salary_ranges=item.get("salary_ranges"),
                 demand=item.get("demand", "moderate"),
+                time_to_job_ready_months=item.get("time_to_job_ready_months"),
+                entrance_difficulty=item.get("entrance_difficulty"),
                 required_skills=item.get("required_skills", []),
                 education_paths=item.get("education_paths", []),
                 source_url=item["source_url"],

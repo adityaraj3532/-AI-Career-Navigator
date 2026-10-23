@@ -6,10 +6,12 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
     Text,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -120,6 +122,14 @@ class Career(Base):
         default="moderate",
         index=True,
         nullable=False,
+    )
+    time_to_job_ready_months: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    entrance_difficulty: Mapped[Optional[str]] = mapped_column(
+        String(32),
+        nullable=True,
     )
     # List of {"name": str, "level": "beginner"|"intermediate"|"advanced"|"expert"}
     required_skills: Mapped[List[Dict[str, Any]]] = mapped_column(
@@ -549,3 +559,96 @@ class Internship(Base):
         back_populates="internships",
         lazy="selectin",
     )
+
+
+class UserShortlist(Base):
+    __tablename__ = "user_shortlists"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    career_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("careers.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    career: Mapped["Career"] = relationship("Career", lazy="selectin")
+
+
+class UserCareerCompatibilitySnapshot(Base):
+    __tablename__ = "user_career_compatibility_snapshots"
+    __table_args__ = (
+        Index("ix_user_career_comp_latest", "user_id", "career_id", text("created_at DESC")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    career_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("careers.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    overall_score: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+    factor_breakdown: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    strengths: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False,
+    )
+    gaps: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False,
+    )
+    weights_version: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        nullable=False,
+    )
+    inputs_hash: Mapped[str] = mapped_column(
+        String(64),
+        index=True,
+        nullable=False,
+    )
+    explanation_status: Mapped[str] = mapped_column(
+        String(32),
+        default="pending",
+        nullable=False,
+    )
+    ai_explanation: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    career: Mapped["Career"] = relationship("Career", lazy="selectin")

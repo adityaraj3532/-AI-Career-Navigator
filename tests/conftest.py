@@ -18,6 +18,7 @@ from app.models.assessment import (
     AssessmentVersion,
 )
 from app.models.auth import RefreshToken
+from app.models.profile import StudentProfile
 from app.models.career import (
     Career,
     Certificate,
@@ -25,6 +26,8 @@ from app.models.career import (
     Course,
     Exam,
     Internship,
+    UserShortlist,
+    UserCareerCompatibilitySnapshot,
 )
 from app.models.user import User
 from app.schemas.assessment import AnswerItem
@@ -300,6 +303,140 @@ class InMemoryAssessmentRepo:
         return result
 
 
+class InMemoryProfileRepo:
+    def __init__(self, profiles_dict: Dict[UUID, StudentProfile]) -> None:
+        self.profiles = profiles_dict
+
+    async def get_by_user_id(self, user_id: UUID) -> Optional[StudentProfile]:
+        for p in self.profiles.values():
+            if p.user_id == user_id:
+                return p
+        return None
+
+    async def upsert_profile(
+        self,
+        user_id: UUID,
+        name: Optional[str] = None,
+        budget_level: Optional[str] = None,
+        hours_available_per_week: Optional[int] = None,
+        subjects_of_interest: Optional[List[str]] = None,
+        skills: Optional[List[Dict[str, Any]]] = None,
+    ) -> StudentProfile:
+        p = await self.get_by_user_id(user_id)
+        now = datetime.now(timezone.utc)
+        if not p:
+            pid = uuid4()
+            p = StudentProfile(
+                id=pid,
+                user_id=user_id,
+                name=name,
+                budget_level=budget_level,
+                hours_available_per_week=hours_available_per_week,
+                subjects_of_interest=subjects_of_interest or [],
+                skills=skills or [],
+                created_at=now,
+                updated_at=now,
+            )
+            self.profiles[pid] = p
+        else:
+            if name is not None:
+                p.name = name
+            if budget_level is not None:
+                p.budget_level = budget_level
+            if hours_available_per_week is not None:
+                p.hours_available_per_week = hours_available_per_week
+            if subjects_of_interest is not None:
+                p.subjects_of_interest = subjects_of_interest
+            if skills is not None:
+                p.skills = skills
+            p.updated_at = now
+        return p
+
+
+class InMemoryShortlistRepo:
+    def __init__(self, shortlist_dict: Dict[Any, UserShortlist], careers_dict: Dict[UUID, Career]) -> None:
+        self.shortlists = shortlist_dict
+        self.careers = careers_dict
+
+    async def get_count(self, user_id: UUID) -> int:
+        return sum(1 for (uid, _), item in self.shortlists.items() if uid == user_id)
+
+    async def get_item(self, user_id: UUID, career_id: UUID) -> Optional[UserShortlist]:
+        item = self.shortlists.get((user_id, career_id))
+        if item and item.career is None:
+            item.career = self.careers.get(career_id)
+        return item
+
+    async def list_for_user(self, user_id: UUID) -> List[UserShortlist]:
+        res = []
+        for (uid, cid), item in self.shortlists.items():
+            if uid == user_id:
+                if item.career is None:
+                    item.career = self.careers.get(cid)
+                res.append(item)
+        res.sort(key=lambda x: x.created_at, reverse=True)
+        return res
+
+    async def add_item(self, user_id: UUID, career_id: UUID) -> UserShortlist:
+        if (user_id, career_id) in self.shortlists:
+            return self.shortlists[(user_id, career_id)]
+        now = datetime.now(timezone.utc)
+        item = UserShortlist(
+            user_id=user_id,
+            career_id=career_id,
+            created_at=now,
+        )
+        item.career = self.careers.get(career_id)
+        self.shortlists[(user_id, career_id)] = item
+        return item
+
+    async def remove_item(self, user_id: UUID, career_id: UUID) -> bool:
+        if (user_id, career_id) in self.shortlists:
+            del self.shortlists[(user_id, career_id)]
+            return True
+        return False
+
+
+class InMemoryCompatibilityRepo:
+    def __init__(self, snapshots_dict: Dict[UUID, UserCareerCompatibilitySnapshot], careers_dict: Dict[UUID, Career]) -> None:
+        self.snapshots = snapshots_dict
+        self.careers = careers_dict
+
+    async def get_latest_snapshot(self, user_id: UUID, career_id: UUID) -> Optional[UserCareerCompatibilitySnapshot]:
+        matches = [
+            s for s in self.snapshots.values()
+            if s.user_id == user_id and s.career_id == career_id
+        ]
+        if not matches:
+            return None
+        matches.sort(key=lambda x: x.created_at, reverse=True)
+        snap = matches[0]
+        if snap.career is None:
+            snap.career = self.careers.get(career_id)
+        return snap
+
+    async def list_history(self, user_id: UUID, career_id: UUID) -> List[UserCareerCompatibilitySnapshot]:
+        matches = [
+            s for s in self.snapshots.values()
+            if s.user_id == user_id and s.career_id == career_id
+        ]
+        matches.sort(key=lambda x: x.created_at, reverse=True)
+        for s in matches:
+            if s.career is None:
+                s.career = self.careers.get(career_id)
+        return matches
+
+    async def save_snapshot(self, snapshot: UserCareerCompatibilitySnapshot) -> UserCareerCompatibilitySnapshot:
+        if not getattr(snapshot, "id", None):
+            snapshot.id = uuid4()
+        if not getattr(snapshot, "created_at", None):
+            snapshot.created_at = datetime.now(timezone.utc)
+        if snapshot.career is None:
+            snapshot.career = self.careers.get(snapshot.career_id)
+        self.snapshots[snapshot.id] = snapshot
+        return snapshot
+
+
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.storage = storage
@@ -307,6 +444,10 @@ class MockSession:
         self.token_repo = InMemoryTokenRepo(storage["tokens"])
         self.career_repo = InMemoryCareerRepo(storage["careers"])
         self.assessment_repo = InMemoryAssessmentRepo(storage)
+        self.profile_repo = InMemoryProfileRepo(storage["student_profiles"])
+        self.shortlist_repo = InMemoryShortlistRepo(storage["user_shortlists"], storage["careers"])
+        self.compatibility_repo = InMemoryCompatibilityRepo(storage["user_career_compatibility_snapshots"], storage["careers"])
+
 
     def add(self, instance):
         if not getattr(instance, "id", None):
@@ -384,6 +525,9 @@ async def test_storage():
         "courses": {},
         "certificates": {},
         "internships": {},
+        "student_profiles": {},
+        "user_shortlists": {},
+        "user_career_compatibility_snapshots": {},
     }
 
     # Pre-seed assessment questions
@@ -524,6 +668,8 @@ async def test_storage():
                 day_in_life=c.get("day_in_life"),
                 salary_ranges=c.get("salary_ranges"),
                 demand=c.get("demand", "moderate"),
+                time_to_job_ready_months=c.get("time_to_job_ready_months"),
+                entrance_difficulty=c.get("entrance_difficulty"),
                 required_skills=c.get("required_skills", []),
                 education_paths=c.get("education_paths", []),
                 status=c.get("status", "draft"),
@@ -558,6 +704,8 @@ async def async_client(test_storage, monkeypatch):
     from app.services.auth_service import AuthService
     from app.services.assessment_service import AssessmentService
     from app.services.career_service import CareerService
+    from app.services.profile_service import ProfileService
+    from app.services.compatibility_service import CompatibilityService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -581,6 +729,22 @@ async def async_client(test_storage, monkeypatch):
         self.assessment_repo = mock_session.assessment_repo
 
     monkeypatch.setattr(CareerService, "__init__", mock_career_service_init)
+
+    def mock_profile_service_init(self, session):
+        self.session = mock_session
+        self.profile_repo = mock_session.profile_repo
+
+    monkeypatch.setattr(ProfileService, "__init__", mock_profile_service_init)
+
+    def mock_compatibility_service_init(self, session):
+        self.session = mock_session
+        self.career_repo = mock_session.career_repo
+        self.assessment_repo = mock_session.assessment_repo
+        self.profile_repo = mock_session.profile_repo
+        self.shortlist_repo = mock_session.shortlist_repo
+        self.compatibility_repo = mock_session.compatibility_repo
+
+    monkeypatch.setattr(CompatibilityService, "__init__", mock_compatibility_service_init)
 
     async def override_get_db():
         yield mock_session
