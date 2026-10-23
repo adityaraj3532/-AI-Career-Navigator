@@ -39,6 +39,10 @@ class Settings(BaseSettings):
 
     # Assessment & Catalog
     ALLOW_DRAFT_CAREERS: bool = False
+    ALLOW_DRAFT_QUESTIONS: bool = False
+    TEST_TIME_LIMIT_MINUTES: int = 20
+    TEST_RETAKE_COOLDOWN_MINUTES: int = 30
+    TEST_MAX_STARTS_PER_HOUR: int = 10
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -57,6 +61,10 @@ class Settings(BaseSettings):
             if self.ALLOW_DRAFT_CAREERS:
                 raise ValueError(
                     "ALLOW_DRAFT_CAREERS must never be enabled in production environments."
+                )
+            if self.ALLOW_DRAFT_QUESTIONS:
+                raise ValueError(
+                    "ALLOW_DRAFT_QUESTIONS must never be enabled in production environments."
                 )
         return self
 

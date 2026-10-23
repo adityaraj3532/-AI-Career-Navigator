@@ -25,6 +25,11 @@ from app.models.assessment import (
     AssessmentAnswer,
     AssessmentResult,
 )
+from app.models.adaptive_test import (
+    TestQuestionBank,
+    TestAttempt,
+    TestAttemptAnswer,
+)
 
 __all__ = [
     "User",
@@ -50,4 +55,7 @@ __all__ = [
     "AssessmentAttempt",
     "AssessmentAnswer",
     "AssessmentResult",
+    "TestQuestionBank",
+    "TestAttempt",
+    "TestAttemptAnswer",
 ]

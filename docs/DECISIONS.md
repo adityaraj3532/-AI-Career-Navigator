@@ -225,3 +225,29 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Never. Mathematical transparency and auditability are non-negotiable requirements for educational counseling.
 
+---
+
+## ADR-013: Adaptive Testing Engine Stage 1 – Step Ladder Progression, Server-Driven Selection & Separate Assessed Skills
+
+- **Options Considered**:
+  - Continuous Item Response Theory (IRT / 2PL models) with continuous $\theta$ estimation vs Discrete 3-tier Step Ladder.
+  - Client-selected question difficulty vs Server-driven adaptive item selection.
+  - Overwriting self-reported skills (`StudentProfile.skills`) directly on test finish vs Maintaining separate assessed skills records (`skill_assessments`).
+- **Choice**: **Discrete 3-Tier Step Ladder Progression, Pure Server-Driven Selection, and Separation of Declared vs Assessed Skills**
+- **Reason**:
+  - **Step Ladder over Continuous IRT**:
+    - Short diagnostic assessments (5–8 items) do not possess the sample volume needed for Maximum Likelihood Estimation (MLE) or Expected A Posteriori (EAP) $\theta$ estimation to mathematically converge.
+    - IRT models require pre-calibrated item difficulty ($b$) and discrimination ($a$) parameters derived from tens of thousands of historical attempts; uncalibrated IRT introduces extreme rating variance and non-intuitive score jumps.
+    - A 3-step ladder (`1` Beginner $\leftrightarrow$ `2` Intermediate $\leftrightarrow$ `3` Advanced) delivers completely transparent, auditable, and reproducible transitions with documented minimum answer requirements per level (e.g. minimum 2 attempts at level 3 with $\ge 60\%$ accuracy to reach "advanced").
+  - **Server-Driven Next Question Selection**:
+    - The client is strictly prohibited from selecting, guessing, or submitting difficulty levels.
+    - Eliminates client-side payload manipulation, prevents cheating or gaming of difficulty levels, and ensures zero answer leakage (correct options and explanations are never sent in question payloads).
+  - **Separation of Declared vs Assessed Skills**:
+    - Declared skills on `StudentProfile.skills` reflect user-reported interests, aspirations, and informal familiarity.
+    - Empirical skill assessments reflect verified, time-stamped, and confidence-scored diagnostic performance. Conflating them destroys provenance and obscures whether a skill level was self-claimed or tested.
+- **Trade-off**:
+  - Requires maintaining curated question banks with explicit integer difficulty tiers (1–3) per topic and language.
+- **Revisit if**:
+  - The platform grows to thousands of concurrent test takers where empirical response logs enable formal item calibration for standardized psychometric IRT.
+
+

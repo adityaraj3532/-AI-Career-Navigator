@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from app.api.v1.adaptive_tests import router as adaptive_tests_router
 from app.api.v1.assessment import router as assessment_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.careers import router as careers_router
@@ -15,4 +16,6 @@ api_v1_router.include_router(careers_router)
 api_v1_router.include_router(profile_router)
 api_v1_router.include_router(shortlist_router)
 api_v1_router.include_router(compare_router)
+api_v1_router.include_router(adaptive_tests_router)
+
 

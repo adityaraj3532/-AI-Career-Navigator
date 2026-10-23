@@ -4,6 +4,74 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-23 (Antigravity) – Adaptive Skill & Aptitude Testing Engine (Stage 1)
+
+### Done
+- **Data Models & Migration**:
+  - `TestQuestionBank` (`app/models/adaptive_test.py`):
+    - `id` (UUID PK), `type` ("skill" | "aptitude"), `topic` (indexed), `subtopic`, `language` (e.g. "python", "cpp", "java", or null), `difficulty` (1, 2, 3), `question_text`, `options` (JSONB list of `{"id", "text"}`), `correct_option_id` (secret, never leaked before answer), `explanation`, `source_note`, `status` ("draft" | "verified", default "draft"), `reviewer`, `verified_at`, `career_cluster`.
+  - `TestAttempt` (`app/models/adaptive_test.py`):
+    - `id` (UUID PK), `user_id` (FK to users), `career_id` (FK to careers), `type`, `topic`, `language`, `status` ("in_progress" | "finished" | "expired"), `current_difficulty` (default 2), `target_questions` (default 6), `time_limit_seconds` (default 1200), `demonstrated_level`, `confidence`, `score_percentage`, `total_correct`, `total_answered`, `disclaimer_note`, `started_at`, `expires_at`, `finished_at`.
+    - Composite index `ix_test_attempts_user_topic_status` on `(user_id, topic, status)`.
+  - `TestAttemptAnswer` (`app/models/adaptive_test.py`):
+    - `id` (UUID PK), `attempt_id` (FK to test_attempts), `question_id` (FK to test_question_banks), `question_order`, `difficulty_at_question`, `selected_option_id`, `is_correct`, `time_taken_seconds`, `created_at`.
+    - `UniqueConstraint("attempt_id", "question_id", name="uq_attempt_question_answer")`.
+  - Authored migration `alembic/versions/006_create_adaptive_test_tables.py` (tested for both upgrade and downgrade static SQL compilation).
+- **Question Bank Seed & Verification CLI**:
+  - Authored 60 original, curriculum-grounded questions across DSA, Python, C++, Java, Quantitative Aptitude, and Logical Reasoning (`app/data/seed/test_questions.json`), all seeded as `status="draft"` with `source_note`.
+  - Created idempotent seeder `scripts/seed_test_questions.py`.
+  - Created verification CLI `scripts/verify_question.py` supporting `--id`, `--topic`, or `--all`, recording reviewer name and verification timestamp.
+  - Added configuration settings: `ALLOW_DRAFT_QUESTIONS`, `TEST_TIME_LIMIT_MINUTES` (20), `TEST_RETAKE_COOLDOWN_MINUTES` (30), `TEST_MAX_STARTS_PER_HOUR` (10).
+- **Adaptive Step Ladder Engine (`app/services/adaptive_test_engine.py`)**:
+  - `calculate_next_difficulty(current_difficulty, is_correct)`: pure function stepping up (+1 to 3) on correct, down (-1 to 1) on incorrect.
+  - `evaluate_final_level(answers)`: pure function enforcing minimum answers per level:
+    - `"advanced"` requires $\ge 2$ answers at level 3, $\ge 60\%$ level 3 accuracy, and $\ge 60\%$ overall accuracy.
+    - `"intermediate"` requires $\ge 2$ answers at level $\ge 2$, $\ge 50\%$ level 2+ accuracy, and $\ge 40\%$ overall accuracy.
+    - `"beginner"` otherwise.
+    - Confidence rating ("low" for $< 3$ answers, "medium" for 3–5, "high" for $\ge 6$ stable).
+    - Disclaimer note: "This level is a preliminary estimate from a short adaptive diagnostic test."
+- **API Endpoints (`app/api/v1/adaptive_tests.py`) & Service Layer**:
+  - `POST /v1/tests/start`: Server picks the starting question (difficulty 2). Verifies career is verified, checks active attempt conflict, retake cooldown, rate limits, and guarantees zero answer leakage.
+  - `POST /v1/tests/{id}/answer`: Strictly checks ownership, evaluates answer against secret `correct_option_id`, returns explanation, advances adaptive difficulty, and returns next public question. Enforces single answer per question with idempotent resubmission. Rejects expired attempts.
+  - `POST /v1/tests/{id}/finish`: Evaluates demonstrated proficiency, records completion, returns recommendations, and allows idempotent retrieval.
+  - Strict `extra="forbid"` on all request bodies.
+- **Testing & Verification**:
+  - Created 15 tests in `tests/test_adaptive_tests.py`:
+    - Progression rule cases (step up, step down, floor 1, ceiling 3).
+    - Final level formula (all correct -> advanced, all wrong -> beginner, alternating -> intermediate, minimum answers requirement, low sample confidence).
+    - Zero answer leakage in start and question payloads.
+    - Double answer idempotency and conflict rejection.
+    - Answering after expiry rejection.
+    - One active attempt per user/topic.
+    - Retake cooldown enforcement.
+    - Strict user ownership isolation (HTTP 404).
+    - Draft questions hidden by default.
+    - Insufficient verified questions returns clear HTTP 400.
+    - Request validation (`extra="forbid"`).
+  - Full project test suite execution: **80 passed, 1 skipped** (live Gemini smoke test).
+  - Code hygiene: `ruff check app tests` passes cleanly with 0 errors/warnings.
+- **Documentation**:
+  - Added ADR-013 in `docs/DECISIONS.md`.
+
+### In progress
+- Stage 1 complete. Awaiting user review before Stage 2 (skill_assessments sync, language advisor questionnaire, test history).
+
+### Broken or risky
+- None. All 80 tests pass cleanly.
+
+### Next (Stage 2 upon approval)
+- Append-only `skill_assessments` table (`user_id`, `skill`, `level`, `confidence`, `source`, `attempt_id`, `created_at`), keeping declared and assessed skills strictly separate.
+- Deterministic language advisor questionnaire mapped by seed table, with AI explanations through gateway.
+- Test history endpoint `GET /v1/tests/history`.
+
+### Do not touch
+- Deterministic progression & level rule: Server drives difficulty; client never sends or chooses difficulty.
+- Zero answer leakage: never send correct answer or explanation before question is answered.
+- Declared and assessed skills stay separate.
+- Production auth: Bearer JWT only.
+
+---
+
 ## Session: 2026-10-23 (Antigravity) – Transparent Compatibility Service, Shortlist & Career Comparison (Stage 1)
 
 ### Done

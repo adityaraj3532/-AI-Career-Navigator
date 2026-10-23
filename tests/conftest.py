@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID, uuid4
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -19,6 +19,11 @@ from app.models.assessment import (
 )
 from app.models.auth import RefreshToken
 from app.models.profile import StudentProfile
+from app.models.adaptive_test import (
+    TestQuestionBank,
+    TestAttempt,
+    TestAttemptAnswer,
+)
 from app.models.career import (
     Career,
     Certificate,
@@ -437,6 +442,172 @@ class InMemoryCompatibilityRepo:
         return snapshot
 
 
+class InMemoryAdaptiveTestRepo:
+    def __init__(
+        self,
+        questions_dict: Dict[UUID, TestQuestionBank],
+        attempts_dict: Dict[UUID, TestAttempt],
+        answers_dict: Dict[UUID, TestAttemptAnswer],
+        careers_dict: Dict[UUID, Career],
+    ) -> None:
+        self.questions = questions_dict
+        self.attempts = attempts_dict
+        self.answers = answers_dict
+        self.careers = careers_dict
+
+    async def get_question_by_id(self, question_id: UUID) -> Optional[TestQuestionBank]:
+        return self.questions.get(question_id)
+
+    async def count_available_questions(
+        self,
+        topic: str,
+        allow_drafts: bool = False,
+        language: Optional[str] = None,
+    ) -> int:
+        count = 0
+        for q in self.questions.values():
+            if q.topic == topic:
+                if not allow_drafts and q.status != "verified":
+                    continue
+                if language is not None and q.language != language:
+                    continue
+                count += 1
+        return count
+
+    async def pick_next_question(
+        self,
+        topic: str,
+        target_difficulty: int,
+        allow_drafts: bool = False,
+        language: Optional[str] = None,
+        exclude_question_ids: Optional[Set[UUID]] = None,
+        recently_seen_ids: Optional[Set[UUID]] = None,
+    ) -> Optional[TestQuestionBank]:
+        exclude_set = exclude_question_ids or set()
+        recent_set = recently_seen_ids or set()
+
+        candidate_diffs = [target_difficulty]
+        if target_difficulty == 2:
+            candidate_diffs.extend([3, 1])
+        elif target_difficulty == 3:
+            candidate_diffs.extend([2, 1])
+        else:
+            candidate_diffs.extend([2, 3])
+
+        for diff in candidate_diffs:
+            pool = []
+            for q in self.questions.values():
+                if q.topic == topic and q.difficulty == diff and q.id not in exclude_set:
+                    if not allow_drafts and q.status != "verified":
+                        continue
+                    if language is not None and q.language != language:
+                        continue
+                    pool.append(q)
+
+            if not pool:
+                continue
+
+            unseen = [q for q in pool if q.id not in recent_set]
+            final_pool = unseen if unseen else pool
+            final_pool.sort(key=lambda x: str(x.id))
+            return final_pool[0]
+
+        return None
+
+    async def get_active_attempt(
+        self,
+        user_id: UUID,
+        topic: str,
+    ) -> Optional[TestAttempt]:
+        for att in self.attempts.values():
+            if att.user_id == user_id and att.topic == topic and att.status == "in_progress":
+                att.career = self.careers.get(att.career_id)
+                att.answers = [a for a in self.answers.values() if a.attempt_id == att.id]
+                att.answers.sort(key=lambda x: x.question_order)
+                return att
+        return None
+
+    async def get_recent_finished_attempt(
+        self,
+        user_id: UUID,
+        topic: str,
+    ) -> Optional[TestAttempt]:
+        finished = [
+            att for att in self.attempts.values()
+            if att.user_id == user_id and att.topic == topic and att.status == "finished"
+        ]
+        if not finished:
+            return None
+        finished.sort(key=lambda x: x.finished_at or x.started_at, reverse=True)
+        return finished[0]
+
+    async def count_user_starts_since(
+        self,
+        user_id: UUID,
+        since: datetime,
+    ) -> int:
+        return sum(
+            1 for att in self.attempts.values()
+            if att.user_id == user_id and att.started_at >= since
+        )
+
+    async def get_attempt_by_id(
+        self,
+        attempt_id: UUID,
+        eager_load_answers: bool = True,
+    ) -> Optional[TestAttempt]:
+        att = self.attempts.get(attempt_id)
+        if not att:
+            return None
+        att.career = self.careers.get(att.career_id)
+        att.answers = [a for a in self.answers.values() if a.attempt_id == att.id]
+        att.answers.sort(key=lambda x: x.question_order)
+        for a in att.answers:
+            a.question = self.questions.get(a.question_id)
+        return att
+
+    async def get_user_recent_question_ids(
+        self,
+        user_id: UUID,
+        topic: str,
+        limit_attempts: int = 3,
+    ) -> Set[UUID]:
+        user_attempts = [
+            att for att in self.attempts.values()
+            if att.user_id == user_id and att.topic == topic
+        ]
+        user_attempts.sort(key=lambda x: x.started_at, reverse=True)
+        recent = user_attempts[:limit_attempts]
+        recent_ids = set(a.id for a in recent)
+        return set(
+            ans.question_id for ans in self.answers.values()
+            if ans.attempt_id in recent_ids
+        )
+
+    async def save_attempt(self, attempt: TestAttempt) -> TestAttempt:
+        if not getattr(attempt, "id", None):
+            attempt.id = uuid4()
+        self.attempts[attempt.id] = attempt
+        return attempt
+
+    async def get_answer(
+        self,
+        attempt_id: UUID,
+        question_id: UUID,
+    ) -> Optional[TestAttemptAnswer]:
+        for ans in self.answers.values():
+            if ans.attempt_id == attempt_id and ans.question_id == question_id:
+                ans.question = self.questions.get(question_id)
+                return ans
+        return None
+
+    async def add_answer(self, answer: TestAttemptAnswer) -> TestAttemptAnswer:
+        if not getattr(answer, "id", None):
+            answer.id = uuid4()
+        self.answers[answer.id] = answer
+        return answer
+
+
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.storage = storage
@@ -447,6 +618,12 @@ class MockSession:
         self.profile_repo = InMemoryProfileRepo(storage["student_profiles"])
         self.shortlist_repo = InMemoryShortlistRepo(storage["user_shortlists"], storage["careers"])
         self.compatibility_repo = InMemoryCompatibilityRepo(storage["user_career_compatibility_snapshots"], storage["careers"])
+        self.adaptive_test_repo = InMemoryAdaptiveTestRepo(
+            storage["test_question_banks"],
+            storage["test_attempts"],
+            storage["test_attempt_answers"],
+            storage["careers"],
+        )
 
 
     def add(self, instance):
@@ -528,6 +705,9 @@ async def test_storage():
         "student_profiles": {},
         "user_shortlists": {},
         "user_career_compatibility_snapshots": {},
+        "test_question_banks": {},
+        "test_attempts": {},
+        "test_attempt_answers": {},
     }
 
     # Pre-seed assessment questions
@@ -694,6 +874,31 @@ async def test_storage():
                 if rc in career_map and career_map[rc].id != career.id
             ]
 
+    # Pre-seed diagnostic test questions
+    tq_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "test_questions.json"
+    if tq_file.is_file():
+        with open(tq_file, "r", encoding="utf-8") as f:
+            tq_data = json.load(f)
+        for q in tq_data.get("questions", []):
+            qid = UUID(q["id"])
+            q_rec = TestQuestionBank(
+                id=qid,
+                type=q["type"],
+                topic=q["topic"],
+                subtopic=q.get("subtopic"),
+                language=q.get("language"),
+                difficulty=q["difficulty"],
+                question_text=q["question_text"],
+                options=q["options"],
+                correct_option_id=q["correct_option_id"],
+                explanation=q["explanation"],
+                source_note=q["source_note"],
+                status=q.get("status", "draft"),
+                career_cluster=q.get("career_cluster"),
+                created_at=datetime.now(timezone.utc),
+            )
+            storage["test_question_banks"][qid] = q_rec
+
     return storage
 
 
@@ -706,6 +911,7 @@ async def async_client(test_storage, monkeypatch):
     from app.services.career_service import CareerService
     from app.services.profile_service import ProfileService
     from app.services.compatibility_service import CompatibilityService
+    from app.services.adaptive_test_service import AdaptiveTestService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -745,6 +951,13 @@ async def async_client(test_storage, monkeypatch):
         self.compatibility_repo = mock_session.compatibility_repo
 
     monkeypatch.setattr(CompatibilityService, "__init__", mock_compatibility_service_init)
+
+    def mock_adaptive_test_service_init(self, session):
+        self.session = mock_session
+        self.repo = mock_session.adaptive_test_repo
+        self.career_repo = mock_session.career_repo
+
+    monkeypatch.setattr(AdaptiveTestService, "__init__", mock_adaptive_test_service_init)
 
     async def override_get_db():
         yield mock_session
