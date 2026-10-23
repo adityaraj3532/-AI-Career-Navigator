@@ -4,6 +4,37 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 6: Security & Architecture Documentation Suite)
+
+### Done
+- **Comprehensive Security & Architecture Documentation Suite (`docs/`)**:
+  - Authored all 6 architecture and resilience documents derived directly from verified application code:
+    1. **`docs/DEFENSE.md`**: Multi-layer perimeter defense, route allowlisting, automated AST route-walker, OpenAPI schema regression tracking, strict IDOR elimination, `PromptInjectionDefense` XML structural isolation, universal critical security directives, pure code scoring invariant, multi-layer timeouts (15s/20s), strict retry policy (1 retry solely on schema errors), deterministic fallback cascades, activity ledger append-only design, and token family rotation with automatic reuse detection.
+    2. **`docs/DECISIONS.md`**: Consolidated index linking all 28 Architectural Decision Records (ADR-001 through ADR-028), covering framework, database driver, worker queues, vector scoring, adaptive testing, roadmap DAGs, access control audits, prompt injection defenses, multi-layer timeouts, and demo account synthesis.
+    3. **`docs/ALTERNATIVES.md`**: In-depth analysis of 9 architectural trade-offs: FastAPI vs Django/Flask, PostgreSQL vs MongoDB/MySQL, ARQ vs Celery, Custom Gateway vs LangChain/LlamaIndex, Pure Code Scoring vs LLM Grading, JWT Token Families vs Stateful Sessions, Step-Ladder vs IRT, Allowlisted Public Slugs vs User ID paths, and XML Structural Prompt Defense vs System Directives alone.
+    4. **`docs/THREAT.md`**: STRIDE threat modeling analysis detailing threat actors, trust boundaries, vulnerability scenarios, and verified platform mitigations across Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, and Elevation of Privilege.
+    5. **`docs/FAILURE.md`**: Failure Modes and Effects Analysis (FMEA), failure recovery matrices, graceful deterministic fallback cascades across mock interviews, follow-ups, portfolio pitches, AI chat, and worker jobs; health probe separation (`/health` vs `/ready`), telemetry fallback tracking, and database restoration procedures.
+    6. **`docs/DATA.md`**: Complete entity-relationship diagram, table field specifications, schema invariants (compound unique constraints, partial unique indexes, CHECK constraints), UTC storage and timezone math rules, cascading delete semantics, and strict PII classification and minimization boundaries.
+- **Verification**:
+  - All documentation matches actual codebase implementation.
+  - Test suite passing: **267 passed, 1 skipped** in 170s.
+  - Linter: `ruff check app tests scripts` passed with 0 errors.
+
+### Active Invariants
+- All 6 architecture documents (`DEFENSE.md`, `DECISIONS.md`, `ALTERNATIVES.md`, `THREAT.md`, `FAILURE.md`, `DATA.md`) reflect live production code and verified invariants.
+- Strict security boundaries (zero IDOR, AST LLM SDK isolation, XML untrusted input containment, code-only scoring, bounded timeouts) are documented and enforced by regression tests.
+
+### Status
+- **Security & Resilience Audit (Fixes 1 - 6) Complete**:
+  - Fix 1: Access Control & IDOR Elimination (Completed & Approved)
+  - Fix 2: Gateway Wiring & Code Scoring (Completed & Approved)
+  - Fix 3: Prompt Injection Defense in Gateway (Completed & Approved)
+  - Fix 4: Timeouts, Retry Boundaries, and Fallbacks (Completed & Approved)
+  - Fix 5: Demo Account Seeding Script (Completed & Approved)
+  - Fix 6: Security Architecture Documentation (Completed)
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 5: Realistic Demo Account Seeding & Verification)
 
 ### Done

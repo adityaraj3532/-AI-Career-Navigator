@@ -4,6 +4,38 @@ This document tracks all foundational technology and architecture choices, evalu
 
 ---
 
+### Index of Decisions
+- [ADR-001: Web Framework – FastAPI](#adr-001-web-framework--fastapi)
+- [ADR-002: Primary Datastore – PostgreSQL with SQLAlchemy & Alembic](#adr-002-primary-datastore--postgresql-with-sqlalchemy--alembic)
+- [ADR-003: Background Worker Queue – ARQ vs Celery](#adr-003-background-worker-queue--arq-vs-celery)
+- [ADR-004: LLM Gateway – Google Gemini Encapsulated in Custom Module](#adr-004-llm-gateway--google-gemini-encapsulated-in-custom-module)
+- [ADR-005: Scoring Logic – Deterministic Code vs LLM Evaluation](#adr-005-scoring-logic--deterministic-code-vs-llm-evaluation)
+- [ADR-006: Database Driver – Single Driver Architecture (`asyncpg` Only)](#adr-006-database-driver--single-driver-architecture-asyncpg-only)
+- [ADR-007: LLM Gateway Resilience – Deterministic Fallback instead of Fail-Open](#adr-007-llm-gateway-resilience--deterministic-fallback-instead-of-fail-open)
+- [ADR-008: Auth Architecture – UUIDs, PyJWT, Opaque Tokens & Family Reuse Detection](#adr-008-auth-architecture--uuids-pyjwt-opaque-tokens--family-reuse-detection)
+- [ADR-009: Assessment Architecture – Versioned Question Banks & Deterministic Career Ranking](#adr-009-assessment-architecture--versioned-question-banks--deterministic-career-ranking)
+- [ADR-010: Assessment Stage 2 – Pure Vector Scoring, Strict AI Boundary & Immutable Versioned Results](#adr-010-assessment-stage-2--pure-vector-scoring-strict-ai-boundary--immutable-versioned-results)
+- [ADR-011: Career Catalog Stage 1a – Relational Normalization, Integer Salary Bounds & Verification Gates](#adr-011-career-catalog-stage-1a--relational-normalization-integer-salary-bounds--verification-gates)
+- [ADR-012: Career Compatibility Service, Shortlisting & Comparison (Stage 1)](#adr-012-career-compatibility-service-shortlisting--comparison-stage-1)
+- [ADR-013: Adaptive Testing Engine Stage 1 – Step Ladder Progression, Server-Driven Selection & Separate Assessed Skills](#adr-013-adaptive-testing-engine-stage-1--step-ladder-progression-server-driven-selection--separate-assessed-skills)
+- [ADR-014: Skill Tracker Engine (Step 1) – Multi-Source Weighted Evidence, Strict Source Caps, Append-Only Provenance, and Deterministic Reporting](#adr-014-skill-tracker-engine-step-1--multi-source-weighted-evidence-strict-source-caps-append-only-provenance-and-deterministic-reporting)
+- [ADR-015: Roadmap Engine Architecture (Step 1a) – Independent Cloned Roadmaps, Pure Algorithmic Scheduling, and 15% Capacity Buffer](#adr-015-roadmap-engine-architecture-step-1a--independent-cloned-roadmaps-pure-algorithmic-scheduling-and-15-capacity-buffer)
+- [ADR-016: Recommendation Engine & Action State Machine (Step 1a) – Reusable Catalog Schema, Deterministic Code-Grounded Ranking, 90-Day Freshness Window, and Skill Progress Hook](#adr-016-recommendation-engine--action-state-machine-step-1a--reusable-catalog-schema-deterministic-code-grounded-ranking-90-day-freshness-window-and-skill-progress-hook)
+- [ADR-017: Portfolio Aggregation Architecture (Step 1b) – Read-Only Multi-Domain Composition, Zero Redundant Storage, and Strict Authenticated Ownership](#adr-017-portfolio-aggregation-architecture-step-1b--read-only-multi-domain-composition-zero-redundant-storage-and-strict-authenticated-ownership)
+- [ADR-018: Completion Architecture for All Deferred Lifecycle Steps – Background ARQ Workers, Password Reset Tokens, Public Portfolio, and Roadmap Endpoints](#adr-018-completion-architecture-for-all-deferred-lifecycle-steps--background-arq-workers-password-reset-tokens-public-portfolio-and-roadmap-endpoints)
+- [ADR-019: Personalized Portfolio Architecture (Step 1a, 1b, Step 2) – Private-by-Default, Non-Writing GET Invariant, Allowlist Public Slug Projection, Grounded AI Suggestions, and Deferred PDF](#adr-019-personalized-portfolio-architecture-step-1a-1b-step-2--private-by-default-non-writing-get-invariant-allowlist-public-slug-projection-grounded-ai-suggestions-and-deferred-pdf)
+- [ADR-020: Mock Interview Architecture (Step 1a) – Pure Code Scoring over Key-Point Booleans, Zero Language Penalties, and Session Question Snapshots](#adr-020-mock-interview-architecture-step-1a--pure-code-scoring-over-key-point-booleans-zero-language-penalties-and-session-question-snapshots)
+- [ADR-021: Mock Interview Full Lifecycle (Step 1b & Step 2) – Deferred Feedback, Privacy Invariant, Multi-Lingual Judging, and PII-Defended Follow-ups](#adr-021-mock-interview-full-lifecycle-step-1b--step-2--deferred-feedback-privacy-invariant-multi-lingual-judging-and-pii-defended-follow-ups)
+- [ADR-022: Progress Tracking, Activity Ledger, Streaks, Milestones, and Weekly Goals (Step 1a & Step 1b)](#adr-022-progress-tracking-activity-ledger-streaks-milestones-and-weekly-goals-step-1a--step-1b)
+- [ADR-023: Study Planner Architecture & Constraints (Step 1a)](#adr-023-study-planner-architecture--constraints-step-1a)
+- [ADR-024: Contextual AI Chat Architecture, Grounding, and Safety (Step 1a)](#adr-024-contextual-ai-chat-architecture-grounding-and-safety-step-1a)
+- [ADR-025: Security Audit Fixes – Access Control Remediation, LLMGateway DI Wiring, and Code-Derived Scoring](#adr-025-security-audit-fixes--access-control-remediation-llmgateway-di-wiring-and-code-derived-scoring)
+- [ADR-026: Prompt Injection Defense – Separate Untrusted Inputs, Delimiter Neutralization, and Universal `<user_input>` XML Isolation](#adr-026-prompt-injection-defense--separate-untrusted-inputs-delimiter-neutralization-and-universal-user_input-xml-isolation)
+- [ADR-027: Multi-Layer Timeouts, Strict Retry Boundaries, and Deterministic Fallback Matrix](#adr-027-multi-layer-timeouts-strict-retry-boundaries-and-deterministic-fallback-matrix)
+- [ADR-028: Demo Account Seeding Architecture & Realistic Multi-Domain Persona Synthesis](#adr-028-demo-account-seeding-architecture--realistic-multi-domain-persona-synthesis)
+
+---
+
 ## ADR-001: Web Framework – FastAPI
 
 - **Options Considered**:
