@@ -10,6 +10,13 @@ import {
   Clock,
 } from 'lucide-react'
 
+type ApplicationStatus =
+  | 'Interested'
+  | 'Applied'
+  | 'Interview'
+  | 'Rejected'
+  | 'Selected'
+
 type Opportunity = {
   id: number
   title: string
@@ -21,6 +28,16 @@ type Opportunity = {
   description: string
   url: string
 }
+
+// Temporary learner profile.
+// Later, replace this with skills from the user's Profile page or backend.
+const learnerSkills = [
+  'JavaScript',
+  'React',
+  'Git',
+  'HTML',
+  'CSS',
+]
 
 const opportunities: Opportunity[] = [
   {
@@ -71,10 +88,76 @@ const opportunities: Opportunity[] = [
 
 const categories = ['All', 'Internship', 'Hackathon', 'Open Source']
 
+function getOpportunityMatch(requiredSkills: string[]) {
+  const normalizedLearnerSkills = learnerSkills.map((skill) =>
+    skill.trim().toLowerCase()
+  )
+
+  const matchedSkills = requiredSkills.filter((skill) =>
+    normalizedLearnerSkills.includes(skill.trim().toLowerCase())
+  )
+
+  const missingSkills = requiredSkills.filter(
+    (skill) =>
+      !normalizedLearnerSkills.includes(skill.trim().toLowerCase())
+  )
+
+  const matchPercentage =
+    requiredSkills.length === 0
+      ? 0
+      : Math.round((matchedSkills.length / requiredSkills.length) * 100)
+
+  return {
+    matchedSkills,
+    missingSkills,
+    matchPercentage,
+  }
+}
+
 export default function OpportunitiesPage() {
-  const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
-  const [saved, setSaved] = useState<number[]>([])
+  const [search, setSearch] = useState('')
+
+  const [saved, setSaved] = useState<number[]>(() => {
+    try {
+      const stored = localStorage.getItem(
+        'pathpilot-saved-opportunities'
+      )
+      return stored ? (JSON.parse(stored) as number[]) : []
+    } catch {
+      return []
+    }
+  })
+
+  const [applicationStatuses, setApplicationStatuses] = useState<
+    Record<number, ApplicationStatus>
+  >(() => {
+    try {
+      const stored = localStorage.getItem(
+        'pathpilot-application-statuses'
+      )
+      return stored
+        ? (JSON.parse(stored) as Record<number, ApplicationStatus>)
+        : {}
+    } catch {
+      return {}
+    }
+  })
+  
+  const applicationCounts = {
+    Interested: 0,
+    Applied: 0,
+    Interview: 0,
+    Rejected: 0,
+    Selected: 0,
+    }
+
+    Object.values(applicationStatuses).forEach((status) => {
+    applicationCounts[status]++
+    })
+
+    const totalTracked = Object.keys(applicationStatuses).length
+
 
   const filteredOpportunities = useMemo(() => {
     return opportunities.filter((opportunity) => {
@@ -118,6 +201,39 @@ export default function OpportunitiesPage() {
       </section>
 
       <section className="opportunities-stats">
+        <section className="panel application-dashboard">
+            <div className="application-dashboard-header">
+                <div>
+                <h2>Application tracker</h2>
+                <p>Keep track of your opportunity journey.</p>
+                </div>
+
+                <div className="application-total">
+                <strong>{totalTracked}</strong>
+                <span>Tracked</span>
+                </div>
+            </div>
+
+            <div className="application-dashboard-grid">
+                {(
+                [
+                    ['Interested', applicationCounts.Interested],
+                    ['Applied', applicationCounts.Applied],
+                    ['Interview', applicationCounts.Interview],
+                    ['Selected', applicationCounts.Selected],
+                    ['Rejected', applicationCounts.Rejected],
+                ] as const
+                ).map(([status, count]) => (
+                <div className="application-dashboard-card" key={status}>
+                    <span>{status}</span>
+                    <strong>{count}</strong>
+                </div>
+                ))}
+            </div>
+            </section>
+
+
+
         <div className="panel opportunity-stat">
           <BriefcaseBusiness size={21} />
           <strong>{opportunities.length}</strong>
@@ -164,6 +280,55 @@ export default function OpportunitiesPage() {
           {filteredOpportunities.length > 0 ? (
             filteredOpportunities.map((opportunity) => (
               <article className="opportunity-card" key={opportunity.id}>
+
+                {(() => {
+                    const {
+                        matchedSkills,
+                        missingSkills,
+                        matchPercentage,
+                    } = getOpportunityMatch(opportunity.skills)
+
+                    return (
+                        <div className="opportunity-match">
+                        <div className="opportunity-match-heading">
+                            <strong>{matchPercentage}% skill match</strong>
+                            <span>
+                            {matchedSkills.length}/{opportunity.skills.length} skills matched
+                            </span>
+                        </div>
+
+                        <div
+                            className="opportunity-match-track"
+                            role="progressbar"
+                            aria-label="Skill match"
+                            aria-valuenow={matchPercentage}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                        >
+                            <div
+                            className="opportunity-match-fill"
+                            style={{ width: `${matchPercentage}%` }}
+                            />
+                        </div>
+
+                        {missingSkills.length > 0 ? (
+                            <div className="missing-skills">
+                            <strong>Skills to learn:</strong>
+                            <div className="opportunity-skills">
+                                {missingSkills.map((skill) => (
+                                <span key={skill}>{skill}</span>
+                                ))}
+                            </div>
+                            </div>
+                        ) : (
+                            <p className="all-skills-matched">
+                            You have all the listed required skills!
+                            </p>
+                        )}
+                        </div>
+                    )
+                })()}
+
                 <div className="opportunity-card-top">
                   <div className="opportunity-icon">
                     {opportunity.type === 'Hackathon' ? (
@@ -202,6 +367,28 @@ export default function OpportunitiesPage() {
                     <span key={skill}>{skill}</span>
                   ))}
                 </div>
+                <div className="application-tracker">
+                    <label htmlFor={`application-status-${opportunity.id}`}>
+                        Application status
+                    </label>
+
+                    <select
+                        id={`application-status-${opportunity.id}`}
+                        value={applicationStatuses[opportunity.id] ?? 'Interested'}
+                        onChange={(event) => {
+                        setApplicationStatuses((current) => ({
+                            ...current,
+                            [opportunity.id]: event.target.value as ApplicationStatus,
+                        }))
+                        }}
+                    >
+                        <option value="Interested">Interested</option>
+                        <option value="Applied">Applied</option>
+                        <option value="Interview">Interview</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Selected">Selected</option>
+                    </select>
+                    </div>
 
                 <div className="opportunity-meta">
                   <span><Users size={15} /> {opportunity.eligibility}</span>

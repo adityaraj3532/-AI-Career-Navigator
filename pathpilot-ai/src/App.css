@@ -1953,3 +1953,99 @@ footer span { padding: 0 6px; color: #8c72e7; }
     padding: 14px;
   }
 }
+
+.application-tracker {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.application-tracker label {
+  color: var(--muted, #77758a);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.application-tracker select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border, #e7e5ee);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.application-dashboard {
+  padding: 22px;
+  margin-bottom: 24px;
+}
+
+.application-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.application-dashboard-header h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.application-dashboard-header p {
+  margin: 0;
+  color: var(--muted, #77758a);
+  font-size: 13px;
+}
+
+.application-total {
+  display: grid;
+  gap: 3px;
+  text-align: right;
+}
+
+.application-total strong {
+  font-size: 25px;
+}
+
+.application-total span {
+  color: var(--muted, #77758a);
+  font-size: 12px;
+}
+
+.application-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.application-dashboard-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border, #e7e5ee);
+  border-radius: 12px;
+}
+
+.application-dashboard-card span {
+  color: var(--muted, #77758a);
+  font-size: 12px;
+}
+
+.application-dashboard-card strong {
+  font-size: 25px;
+  color: #7561d9;
+}
+
+@media (max-width: 700px) {
+  .application-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .application-dashboard {
+    padding: 15px;
+  }
+}
