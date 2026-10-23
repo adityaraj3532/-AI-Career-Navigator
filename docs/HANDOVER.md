@@ -4,6 +4,80 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Study Planner (Step 1a: Core Data Model, Constraints & Pure Scheduling Engine)
+
+### Done
+- **Prerequisite Verification**:
+  - Confirmed `roadmap` endpoints (`POST /roadmaps`, `GET /roadmaps/{id}`, `PATCH /roadmaps/items/{id}`, `POST /roadmaps/{id}/replan`) exist in `app/api/v1/roadmaps.py`.
+  - Confirmed `activity_events` ledger and `record_activity` exist in `app/services/activity_service.py`.
+  - Confirmed skill evidence ingestion hook (`_record_roadmap_skill_evidence`) exists in `RoadmapService`.
+- **Database Schema & Migration (`alembic/versions/014_create_planner_tasks.py`)**:
+  - Confirmed single linear Alembic head at `013_create_progress_and_milestones` before authoring migration `014_create_planner_tasks.py`.
+  - Created `planner_tasks` table (`id`, `user_id`, `roadmap_item_id`, `task_type`, `title`, `notes`, `estimated_minutes`, `scheduled_date`, `status`, `priority`, `user_rescheduled`, `completed_at`, timestamps).
+  - Enforced partial unique index: `uq_planner_tasks_user_roadmap_item_active` on `(user_id, roadmap_item_id)` WHERE `status <> 'cancelled' AND roadmap_item_id IS NOT NULL`.
+  - Enforced check constraints:
+    - `ck_planner_tasks_type_roadmap_item`: `task_type = 'roadmap_item'` iff `roadmap_item_id IS NOT NULL`.
+    - `ck_planner_tasks_estimated_minutes`: `estimated_minutes > 0 AND estimated_minutes <= 1440`.
+    - `ck_planner_tasks_status`: `status IN ('pending', 'in_progress', 'completed', 'cancelled')`.
+    - `ck_planner_tasks_priority`: `priority IN ('low', 'medium', 'high')`.
+  - Enforced compound index `(user_id, scheduled_date)` and foreign key cascade on `roadmap_items.id`.
+  - Did NOT create `task_reminders` yet (deferred to Step 2).
+- **Pure Planner Calculation Engine (`app/services/planner_engine.py`)**:
+  - `compute_daily_budget(hours_available_per_week)`: Reuses roadmap scheduler's 15% buffer; returns `None` if hours are missing or $\le 0$.
+  - `check_is_overallocated(planned_minutes, daily_budget)`: Returns `None` if budget is `None`; otherwise evaluates `planned_minutes > daily_budget`.
+  - `get_week_window(target_date)` & `compute_week_overview`: Computes Monday ISO week window and 7-day breakdown across timezones.
+  - `validate_planner_status_transition`: Pure state machine validator (`pending` -> `in_progress`/`completed`/`cancelled`, `completed` -> `in_progress`/`pending`, etc.).
+  - `select_phase_suggestions`: Selects active phase candidate items that fit within the remaining daily budget without exceeding it. Marked `suggested=True` and never persisted by GET.
+  - `reconcile_tasks_with_roadmap_replan`: Strictly moves only `pending` and `user_rescheduled=False` tasks when a roadmap replan occurs. Completed, cancelled, in_progress, and user-rescheduled tasks are untouched.
+  - `validate_scheduled_date_window`: Enforces scheduled date window between 7 days in the past and 90 days in the future.
+  - Documented status mapping:
+    - `pending` <-> `todo`
+    - `in_progress` <-> `in_progress`
+    - `completed` <-> `done`
+    - `cancelled` <-> `todo` (cancelling a planner task returns the roadmap item to backlog/todo)
+- **Pydantic Schemas (`app/schemas/planner.py`)**:
+  - `PlannerTaskCreate`, `PlannerTaskUpdate`, `PlannerTaskResponse`, `PlannerDayResponse` with `model_config = ConfigDict(extra="forbid")`.
+- **Testing & QA**:
+  - Authored 17 comprehensive unit tests in `tests/test_planner_step1a.py` covering:
+    1. Daily budget null cases (missing, 0, negative hours)
+    2. Buffer calculation (15% capacity buffer)
+    3. Overallocation boundary conditions
+    4. Monday-to-Sunday week window calculation in IST and DST timezones
+    5. Week overview aggregations
+    6. Allowed vs forbidden status transitions
+    7. Status mapping documentation verification
+    8. Suggestion selection within remaining budget
+    9. Empty suggestions on zero remaining budget
+    10. Suggestion exclusion of already scheduled and done items
+    11. Replan reconciliation rules (pending moves, completed stays, user_rescheduled stays, cancelled stays, in_progress stays)
+    12. Scheduled date window boundary validation
+    13. Partial unique index behavior (blocks duplicate active task, allows re-adding after cancellation)
+    14. Check constraints validation via Pydantic schemas
+    15. Migration 014 metadata, revision lineage, upgrade/downgrade consistency
+  - All 17 tests passed in 0.39s. Full test suite: **212 passed, 1 skipped**, 0 failures.
+  - Code hygiene: `ruff check app tests` passed with 0 errors.
+
+### Active Invariants
+- Partial unique index on `(user_id, roadmap_item_id) WHERE status <> 'cancelled'` guarantees at most 1 live task per roadmap item.
+- Check constraint enforces `task_type = 'roadmap_item'` if and only if `roadmap_item_id` is present.
+- Roadmap items can only be scheduled within a $[-7, +90]$ days window from today.
+- Replan reconciliation never touches completed, cancelled, or user-rescheduled tasks.
+- Suggestions on GET are computed dynamically in code and never written to the database.
+- Custom tasks do NOT record streak events; only roadmap-linked tasks write to the activity ledger upon completion.
+- All request schemas enforce `extra="forbid"`.
+
+### Pending / Next Items
+- **Step 1b**: Build endpoints:
+  - `GET /v1/planner?date=`
+  - `POST /v1/planner/tasks`
+  - `PATCH /v1/planner/tasks/{id}`
+  - Unified `complete_roadmap_item` function shared between roadmap PATCH and planner PATCH (atomic roadmap status update, low-weight skill evidence, activity ledger write).
+- **Step 1c**: Build `GET /v1/ai/next-actions` (top 3 gap-prioritized actions with ARQ job rationale).
+- **Step 2**: Pluggable notifications channel (`EmailNotificationChannel`) + ARQ reminder background dispatcher.
+- **Portfolio Step 3**: User decision pending on frontend print stylesheet vs maintained backend library for one-page resume export.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Progress Tracking, Activity Ledger, Streaks, Milestones & Weekly Goals (Step 1a, Step 1b, and Step 2)
 
 ### Done

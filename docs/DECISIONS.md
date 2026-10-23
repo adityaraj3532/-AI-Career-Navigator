@@ -507,6 +507,34 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Massive multi-tenant scale ($> 10^8$ rows) requires partitioning `activity_events` by local year/month.
 
+---
+
+## ADR-023: Study Planner Architecture & Constraints (Step 1a)
+
+- **Options Considered**:
+  - Dual completion logic in Roadmap and Planner services vs A single unified `complete_roadmap_item` function.
+  - Allowing custom ad-hoc tasks to record streak activity vs Strictly restricting activity ledger writes to verified roadmap items.
+  - Persisting auto-scheduled roadmap suggestions on `GET /v1/planner` vs Purely computing suggestions on read and only persisting upon user acceptance via POST.
+- **Choice**: **Single Authoritative Completion Function, Strict Ledger Gate (Verified Items Only), and Pure Read-Only GET with Ephemeral Suggestions**
+- **Reason**:
+  - **Why One Authoritative Completion Function**:
+    - Completing a task has cascading consequences across the system: updating `RoadmapItem.status = 'done'`, ingesting low-weight evidence into `SkillEvidence`, evaluating and writing to the `activity_events` ledger, recalculating streaks, and awarding newly unlocked milestones.
+    - Implementing duplicate completion logic in both `RoadmapService` and `PlannerService` creates high risk of subtle synchronization drifts (e.g. roadmap marked done without skill evidence, or planner task completed without recording activity). A single shared completion function executed within one database transaction guarantees strict idempotency and cross-system consistency.
+  - **Why Custom Tasks Do Not Count Toward Streaks**:
+    - Streaks represent genuine, verifiable academic habit formation tied to validated curriculum items, adaptive assessments, and interview practice.
+    - If user-created custom tasks (`user_custom`, e.g. "quick review", "read article") were permitted to write to the `activity_events` ledger, users could artificially fabricate streaks and milestone badges without engaging in actual learning. Custom tasks serve personal daily time management, but only verified roadmap items advance the academic ledger and streak counts.
+  - **Why GET Never Writes**:
+    - Under HTTP semantics and REST principles, GET requests must be safe and idempotent.
+    - Pacing suggestions (candidate roadmap items fitting the remaining daily budget) are computed dynamically in code. Persisting suggestions automatically on GET would pollute the database with unaccepted tasks whenever a user opens their planner, creating write lock contention and phantom data. Tasks become persistent only when the user explicitly accepts them via `POST /v1/planner/tasks`.
+  - **Partial Unique Index & State Invariants**:
+    - Partial unique index `(user_id, roadmap_item_id)` WHERE `status <> 'cancelled'` guarantees that an active roadmap item can never be scheduled more than once simultaneously across planner days, while cleanly allowing re-scheduling if a previous attempt was cancelled.
+    - Check constraints enforce strict data integrity: `task_type = 'roadmap_item'` if and only if `roadmap_item_id` is present, `estimated_minutes` is bounded between 1 and 1440, and scheduled dates fall within the valid window (7 days back to 90 days ahead).
+- **Trade-off**:
+  - Suggestions must be computed per request on GET; however, computation is pure in-memory filtering against active phase items and is completed in $< 1$ millisecond.
+- **Revisit if**:
+  - Complex calendar sync protocols (e.g. Google Calendar / iCal bidirectional sync) require external ID mappings.
+
+
 
 
 

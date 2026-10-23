@@ -60,6 +60,7 @@ from app.models.progress import (
     UserMilestone,
     WeeklyGoal,
 )
+from app.models.planner import PlannerTask
 
 __all__ = [
     "User",
@@ -111,4 +112,5 @@ __all__ = [
     "MilestoneRule",
     "UserMilestone",
     "WeeklyGoal",
+    "PlannerTask",
 ]
