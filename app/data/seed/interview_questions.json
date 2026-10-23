@@ -1,0 +1,215 @@
+{
+  "version": "1.0",
+  "questions": [
+    {
+      "code": "SDE_BEG_ARRAYS_LINKED_LISTS",
+      "career_code": "SOFTWARE_DEVELOPER",
+      "type": "technical",
+      "level": "beginner",
+      "text": "Explain the architectural differences between an Array and a Singly Linked List in memory. Under what circumstances would you choose one over the other in a production backend service?",
+      "key_points": [
+        {
+          "id": "kp_mem_layout",
+          "text": "Explains contiguous memory allocation with CPU cache locality in arrays versus dynamic heap node allocations with pointer overhead in linked lists.",
+          "weight": 0.35,
+          "keywords": ["contiguous", "cache locality", "pointers", "node", "memory layout", "cpu cache"]
+        },
+        {
+          "id": "kp_access_complexity",
+          "text": "Identifies O(1) random access indexing for arrays compared to O(N) sequential traversal lookup for linked lists.",
+          "weight": 0.35,
+          "keywords": ["o(1)", "random access", "indexing", "o(n)", "traversal", "lookup"]
+        },
+        {
+          "id": "kp_insertion_resizing",
+          "text": "Analyzes dynamic array resizing costs (amortized O(1)) versus O(1) head insertion in linked lists.",
+          "weight": 0.30,
+          "keywords": ["insertion", "deletion", "dynamic array", "resizing", "amortized", "head"]
+        }
+      ],
+      "sample_answer": "Arrays allocate elements in contiguous memory blocks, giving them excellent CPU cache locality and O(1) random access by index. However, resizing requires allocating a larger block and copying existing elements (amortized O(1)). In contrast, singly linked lists store discrete nodes on the heap connected via pointers, requiring extra pointer memory and resulting in O(N) sequential traversal due to cache misses. However, linked lists allow constant O(1) insertions at the head without resizing. In a production service, arrays/vectors are preferred for read-heavy operations or fixed-size buffers, whereas linked lists are useful for queue implementations where elements are continuously enqueued and dequeued.",
+      "status": "draft",
+      "source_note": "Original AI Career Navigator engineering bank"
+    },
+    {
+      "code": "SDE_INT_REST_IDEMPOTENCY",
+      "career_code": "SOFTWARE_DEVELOPER",
+      "type": "technical",
+      "level": "intermediate",
+      "text": "What does idempotency mean in the context of RESTful APIs, and how would you implement an idempotent payment or order processing endpoint to prevent duplicate transactions during network retries?",
+      "key_points": [
+        {
+          "id": "kp_idempotency_def",
+          "text": "Defines idempotency where multiple identical requests produce the same side-effect, classifying GET, PUT, and DELETE as naturally idempotent while POST is not.",
+          "weight": 0.35,
+          "keywords": ["idempotent", "side effect", "get", "put", "delete", "post", "multiple requests"]
+        },
+        {
+          "id": "kp_idempotency_key",
+          "text": "Implements an Idempotency-Key header mechanism stored in Redis or database with a short-lived TTL to deduplicate requests.",
+          "weight": 0.35,
+          "keywords": ["idempotency key", "token", "header", "redis", "ttl", "deduplicate", "unique constraint"]
+        },
+        {
+          "id": "kp_concurrency_race",
+          "text": "Addresses race conditions during in-flight retries using distributed locking or database unique constraints and returns the cached response.",
+          "weight": 0.30,
+          "keywords": ["race condition", "distributed lock", "in-flight", "cached response", "atomic", "mutex"]
+        }
+      ],
+      "sample_answer": "An API operation is idempotent if executing it multiple times consecutively leaves the system in the exact same state as executing it once. In HTTP, GET, PUT, and DELETE are idempotent by specification, whereas POST is not. For financial transactions like payments, we require client requests to send a unique Idempotency-Key header (such as a UUIDv4). When the server receives the request, it attempts an atomic lock in Redis with a TTL. If the key exists with a completed response, the server returns the cached response immediately without re-processing. If the key is currently locked by an in-flight request, subsequent calls wait or return a 409 Conflict to prevent duplicate debiting.",
+      "status": "draft",
+      "source_note": "Original AI Career Navigator engineering bank"
+    },
+    {
+      "code": "SDE_INT_DB_INDEXING",
+      "career_code": "SOFTWARE_DEVELOPER",
+      "type": "technical",
+      "level": "intermediate",
+      "text": "How does a B-Tree index accelerate queries in a relational database such as PostgreSQL? What are the architectural trade-offs to consider before adding indexes to high-throughput tables?",
+      "key_points": [
+        {
+          "id": "kp_btree_structure",
+          "text": "Explains the balanced B-Tree hierarchy providing O(log N) search, insert, and sequential range-scan efficiency.",
+          "weight": 0.40,
+          "keywords": ["b-tree", "b tree", "o(log n)", "range scan", "balanced", "lookup"]
+        },
+        {
+          "id": "kp_leftmost_prefix",
+          "text": "Covers composite index column ordering, leftmost prefix matching, and column selectivity.",
+          "weight": 0.30,
+          "keywords": ["composite index", "leftmost prefix", "selectivity", "cardinality", "column order"]
+        },
+        {
+          "id": "kp_write_overhead",
+          "text": "Details the write amplification penalty, disk storage overhead, and maintenance cost during high-volume INSERT/UPDATE/DELETE.",
+          "weight": 0.30,
+          "keywords": ["write overhead", "insert", "update", "storage", "disk io", "write amplification"]
+        }
+      ],
+      "sample_answer": "A B-Tree index maintains a self-balancing tree structure where nodes store sorted keys and disk page pointers. This allows lookup, range queries, and ordering in O(log N) disk reads compared to an O(N) sequential table scan. For composite indexes, column ordering is critical because PostgreSQL can only leverage the index if query filters utilize the leftmost prefix of indexed columns. The primary trade-off is write amplification: every INSERT, UPDATE, or DELETE must synchronously modify the table data pages as well as every secondary index tree, increasing disk I/O, storage footprint, and VACUUM overhead. Indexes should be added selectively on high-cardinality query filter columns.",
+      "status": "draft",
+      "source_note": "Original AI Career Navigator engineering bank"
+    },
+    {
+      "code": "SDE_ADV_DISTRIBUTED_CACHING",
+      "career_code": "SOFTWARE_DEVELOPER",
+      "type": "technical",
+      "level": "advanced",
+      "text": "Compare the Cache-Aside and Write-Through caching patterns. How would you architect a distributed caching layer to survive a cache stampede (thundering herd) when a hot key expires?",
+      "key_points": [
+        {
+          "id": "kp_caching_patterns",
+          "text": "Contrasts Cache-Aside (lazy loading with application orchestration) with Write-Through / Write-Behind (cache synchronizes writes directly to datastore).",
+          "weight": 0.35,
+          "keywords": ["cache-aside", "write-through", "write-behind", "lazy loading", "datastore"]
+        },
+        {
+          "id": "kp_invalidation_consistency",
+          "text": "Analyzes eventual consistency trade-offs, TTL configuration, and race conditions between database updates and cache invalidation.",
+          "weight": 0.35,
+          "keywords": ["invalidation", "ttl", "consistency", "race condition", "stale data"]
+        },
+        {
+          "id": "kp_stampede_mitigation",
+          "text": "Provides concrete architectural mitigations for cache stampedes: distributed mutex locks, probabilistic early expiration (XFetch), or background refresh.",
+          "weight": 0.30,
+          "keywords": ["stampede", "thundering herd", "mutex", "lock", "xfetch", "background refresh", "dogpiling"]
+        }
+      ],
+      "sample_answer": "In Cache-Aside, the application inspects the cache first; on a miss, it queries the database and populates the cache lazily. In Write-Through, the application writes directly to the cache, which synchronously updates the backing database, ensuring fresh data at the cost of higher write latency. Cache stampedes occur when a heavily accessed key expires, causing thousands of concurrent requests to overwhelm the database. We mitigate this using distributed mutexes in Redis (e.g. SETNX lock) so only one worker queries the database to recompute the key while others wait or serve stale data, or using probabilistic early expiration (XFetch) to recompute before hard expiration.",
+      "status": "draft",
+      "source_note": "Original AI Career Navigator engineering bank"
+    },
+    {
+      "code": "HR_BEG_PRIORITIZATION",
+      "career_code": null,
+      "type": "hr",
+      "level": "beginner",
+      "text": "Tell me about a time when you were assigned multiple urgent tasks with overlapping deadlines. How did you prioritize your workload, communicate expectations, and deliver results?",
+      "key_points": [
+        {
+          "id": "kp_prioritization_framework",
+          "text": "Applies a structured evaluation framework (such as impact versus urgency) to rank deliverables.",
+          "weight": 0.40,
+          "keywords": ["impact", "urgency", "eisenhower", "prioritize", "importance", "ranking"]
+        },
+        {
+          "id": "kp_stakeholder_communication",
+          "text": "Communicates early and transparently with managers or stakeholders to align on expectations and trade-offs.",
+          "weight": 0.30,
+          "keywords": ["communication", "stakeholder", "manager", "proactive", "transparent", "alignment", "expectations"]
+        },
+        {
+          "id": "kp_iterative_execution",
+          "text": "Demonstrates structured execution: breaking large deliverables into MVPs or milestones to meet deadlines without burnout.",
+          "weight": 0.30,
+          "keywords": ["mvp", "iterative", "milestones", "trade-off", "delivery", "execution"]
+        }
+      ],
+      "sample_answer": "During my final semester project, I had to prepare for university exams while delivering an end-to-end backend module for an internship deadline. I evaluated both tasks using an impact vs. urgency matrix. I realized the backend API was on the critical path for the frontend team, while my exam study schedule could be distributed. I proactively scheduled a 15-minute sync with my internship mentor to clarify the core requirements, agreeing on a streamlined MVP for the initial sprint. I allocated mornings to deep-focus coding and evenings to revision blocks. As a result, I deployed the API two days ahead of schedule with full test coverage and scored top marks in my exams.",
+      "status": "draft",
+      "source_note": "Original AI Career Navigator HR bank"
+    },
+    {
+      "code": "HR_INT_CONFLICT_RESOLUTION",
+      "career_code": null,
+      "type": "hr",
+      "level": "intermediate",
+      "text": "Describe a situation where you had a technical disagreement with a team member or peer. How did you handle the discussion, reach consensus, and maintain a collaborative relationship?",
+      "key_points": [
+        {
+          "id": "kp_conflict_context",
+          "text": "Articulates the situation clearly using the STAR framework, detailing the technical divergence without blaming individuals.",
+          "weight": 0.35,
+          "keywords": ["situation", "task", "disagreement", "context", "perspective", "divergent", "team"]
+        },
+        {
+          "id": "kp_objective_evidence",
+          "text": "Steers the debate toward objective evidence, benchmarks, prototypes, or user requirements rather than personal opinions.",
+          "weight": 0.35,
+          "keywords": ["data", "prototype", "benchmark", "objective", "evidence", "pros and cons", "tradeoffs"]
+        },
+        {
+          "id": "kp_consensus_outcome",
+          "text": "Reaches professional alignment, commits fully to the chosen decision, and preserves team cohesion.",
+          "weight": 0.30,
+          "keywords": ["compromise", "consensus", "disagree and commit", "outcome", "collaboration", "result"]
+        }
+      ],
+      "sample_answer": "In a previous team project, a teammate wanted to use a NoSQL database for our student records service, whereas I advocated for PostgreSQL because our domain had rigid relational integrity constraints and foreign keys. Rather than arguing abstract preferences, I suggested we build two quick prototypes to benchmark schema migrations and relational queries with mock datasets. When we reviewed the benchmarks, the complex join queries in NoSQL became noticeably difficult to maintain without transactions. My peer recognized the advantage of PostgreSQL for our transactional requirements, and we agreed to use PostgreSQL while adopting JSONB columns for flexible attributes. We delivered on time and our working relationship grew stronger.",
+      "status": "draft",
+      "source_note": "Original AI Career Navigator HR bank"
+    },
+    {
+      "code": "HR_ADV_INCIDENT_OWNERSHIP",
+      "career_code": null,
+      "type": "hr",
+      "level": "advanced",
+      "text": "Share an experience where an unexpected failure or critical issue occurred in a system you owned. What immediate actions did you take, how did you coordinate, and what systemic changes did you implement afterwards?",
+      "key_points": [
+        {
+          "id": "kp_triage_mitigation",
+          "text": "Prioritizes immediate blast-radius containment, mitigation (rollback/failover), and clear status communication before diving into deep root cause.",
+          "weight": 0.40,
+          "keywords": ["triage", "mitigate", "rollback", "incident", "status page", "blast radius", "containment"]
+        },
+        {
+          "id": "kp_blameless_rca",
+          "text": "Conducts a thorough, blameless root cause analysis (RCA) to understand the systemic breakdown rather than assigning personal fault.",
+          "weight": 0.30,
+          "keywords": ["post-mortem", "rca", "root cause", "blameless", "5 whys", "retrospective"]
+        },
+        {
+          "id": "kp_systemic_prevention",
+          "text": "Implements automated guardrails, monitoring alerts, and CI/CD validation gates to ensure the failure class cannot recur.",
+          "weight": 0.30,
+          "keywords": ["safeguards", "automated alert", "monitoring", "action items", "preventative", "ci/cd", "regression"]
+        }
+      ],
+      "sample_answer": "Following a Friday deployment, our background worker queue memory spiked exponentially, causing customer notification delays. My immediate focus was mitigation: I initiated a rollback to the previous stable release within 8 minutes and posted a status page update for impacted users. Once services normalized, I facilitated a blameless post-mortem with the engineering team using the 5 Whys. We uncovered that an unindexed database query in a new retry loop caused database connection pool starvation under peak load. To prevent recurrence, we added connection pool saturation alerts in Datadog and introduced an automated CI check that fails builds if new queries do not have an EXPLAIN ANALYZE index verification.",
+      "status": "draft",
+      "source_note": "Original AI Career Navigator HR bank"
+    }
+  ]
+}

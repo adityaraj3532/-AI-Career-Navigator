@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID, uuid4
 import pytest_asyncio
@@ -20,6 +20,17 @@ from app.models.assessment import (
 from app.models.auth import PasswordResetToken, RefreshToken
 from app.models.profile import StudentProfile
 from app.models.portfolio import UserPortfolio
+from app.models.interview import (
+    InterviewQuestion,
+    InterviewSession,
+    SessionQuestion,
+    InterviewAnswer,
+    InterviewResult,
+)
+from app.repositories.interview_repository import (
+    InsufficientQuestionsError,
+    ActiveSessionExistsError,
+)
 from app.models.adaptive_test import (
     TestQuestionBank,
     TestAttempt,
@@ -1193,6 +1204,159 @@ class InMemoryRoadmapRepo:
         return history_record
 
 
+class InMemoryInterviewRepo:
+    def __init__(self, storage: Dict[str, Any]) -> None:
+        self.storage = storage
+
+    async def get_questions_for_interview(
+        self,
+        career_id: Optional[UUID],
+        type: str,
+        level: str,
+        limit: int = 3,
+        allow_drafts: bool = False,
+    ) -> List[InterviewQuestion]:
+        candidates = []
+        for q in self.storage.get("interview_questions", {}).values():
+            if q.type != type or q.level != level:
+                continue
+            if not allow_drafts and q.status != "verified":
+                continue
+            if type == "hr":
+                if career_id is not None:
+                    if q.career_id == career_id or q.career_id is None:
+                        candidates.append(q)
+                else:
+                    if q.career_id is None:
+                        candidates.append(q)
+            else:
+                if career_id is not None and q.career_id == career_id:
+                    candidates.append(q)
+
+        candidates.sort(key=lambda x: (x.created_at, str(x.id)))
+        if len(candidates) < limit:
+            raise InsufficientQuestionsError(
+                f"Requested {limit} {type} ({level}) questions, but only found {len(candidates)} verified in bank."
+            )
+        return candidates[:limit]
+
+    async def get_active_session(self, user_id: UUID) -> Optional[InterviewSession]:
+        now = datetime.now(timezone.utc)
+        for s in self.storage.get("interview_sessions", {}).values():
+            if s.user_id == user_id and s.status == "in_progress" and s.expires_at > now:
+                return s
+        return None
+
+    async def create_session(
+        self,
+        user_id: UUID,
+        career_id: Optional[UUID],
+        type: str,
+        level: str,
+        questions: List[InterviewQuestion],
+        duration_minutes: int = 45,
+    ) -> InterviewSession:
+        existing = await self.get_active_session(user_id)
+        if existing:
+            raise ActiveSessionExistsError(
+                f"User already has an active interview session '{existing.id}' in progress."
+            )
+
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=duration_minutes)
+        sid = uuid4()
+        session = InterviewSession(
+            id=sid,
+            user_id=user_id,
+            career_id=career_id,
+            type=type,
+            level=level,
+            status="in_progress",
+            started_at=now,
+            expires_at=expires_at,
+            created_at=now,
+            updated_at=now,
+        )
+        self.storage.setdefault("interview_sessions", {})[sid] = session
+
+        sq_list = []
+        import copy
+        for idx, q in enumerate(questions, start=1):
+            sqid = uuid4()
+            sq = SessionQuestion(
+                id=sqid,
+                session_id=sid,
+                question_id=q.id,
+                parent_session_question_id=None,
+                order=idx,
+                question_text=q.text,
+                key_points=copy.deepcopy(q.key_points),
+                is_follow_up=False,
+                created_at=now,
+            )
+            self.storage.setdefault("session_questions", {})[sqid] = sq
+            sq_list.append(sq)
+
+        session.session_questions = sq_list
+        return session
+
+    async def get_session_by_id(self, session_id: UUID) -> Optional[InterviewSession]:
+        return self.storage.get("interview_sessions", {}).get(session_id)
+
+    async def save_answer(
+        self,
+        session_question_id: UUID,
+        user_id: UUID,
+        answer_text: str,
+    ) -> InterviewAnswer:
+        now = datetime.now(timezone.utc)
+        aid = uuid4()
+        ans = InterviewAnswer(
+            id=aid,
+            session_question_id=session_question_id,
+            user_id=user_id,
+            answer_text=answer_text[:2000],
+            submitted_at=now,
+        )
+        self.storage.setdefault("interview_answers", {})[aid] = ans
+        sq = self.storage.get("session_questions", {}).get(session_question_id)
+        if sq:
+            sq.answer = ans
+        return ans
+
+    async def save_result(
+        self,
+        session_id: UUID,
+        session_question_id: Optional[UUID],
+        rubric_version: str,
+        scores: Any,
+        scoring_method: str = "fallback",
+        confidence: str = "low",
+    ) -> InterviewResult:
+        now = datetime.now(timezone.utc)
+        rid = uuid4()
+        res = InterviewResult(
+            id=rid,
+            session_id=session_id,
+            session_question_id=session_question_id,
+            rubric_version=rubric_version,
+            coverage_score=scores.coverage_score,
+            depth_score=scores.depth_score,
+            structure_score=scores.structure_score,
+            overall_score=scores.overall_score,
+            covered_points=scores.covered_points,
+            scoring_method=scoring_method,
+            confidence=confidence,
+            created_at=now,
+        )
+        self.storage.setdefault("interview_results", {})[rid] = res
+        if session_question_id:
+            sq = self.storage.get("session_questions", {}).get(session_question_id)
+            if sq:
+                sq.results = [res]
+        return res
+
+
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.storage = storage
@@ -1218,6 +1382,7 @@ class MockSession:
         self.recommendation_repo = InMemoryRecommendationRepo(storage)
         self.portfolio_repo = InMemoryPortfolioRepo(storage)
         self.roadmap_repo = InMemoryRoadmapRepo(storage)
+        self.interview_repo = InMemoryInterviewRepo(storage)
 
 
     def add(self, instance):
@@ -1315,6 +1480,11 @@ async def test_storage():
         "exam_cycles": {},
         "recommendation_actions": {},
         "user_portfolios": {},
+        "interview_questions": {},
+        "interview_sessions": {},
+        "session_questions": {},
+        "interview_answers": {},
+        "interview_results": {},
     }
 
     # Pre-seed assessment questions
@@ -1609,6 +1779,31 @@ async def test_storage():
                     item.template = tmpl
                     item.skill = sk
                     storage["template_items"][iid] = item
+
+    # Pre-seed interview questions
+    iq_file = Path(__file__).resolve().parent.parent / "app" / "data" / "seed" / "interview_questions.json"
+    if iq_file.is_file():
+        with open(iq_file, "r", encoding="utf-8") as f:
+            iq_data = json.load(f)
+        for item in iq_data.get("questions", []):
+            career = None
+            if item.get("career_code"):
+                career = next((c for c in storage["careers"].values() if c.code == item["career_code"]), None)
+            qid = uuid4()
+            q = InterviewQuestion(
+                id=qid,
+                career_id=career.id if career else None,
+                type=item["type"],
+                level=item["level"],
+                text=item["text"],
+                key_points=item["key_points"],
+                sample_answer=item.get("sample_answer"),
+                status=item.get("status", "draft"),
+                source_note=item.get("source_note"),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            storage["interview_questions"][qid] = q
 
     return storage
 

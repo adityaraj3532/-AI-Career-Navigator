@@ -47,6 +47,13 @@ from app.models.roadmap import (
 )
 from app.models.recommendation import RecommendationAction
 from app.models.portfolio import UserPortfolio
+from app.models.interview import (
+    InterviewQuestion,
+    InterviewSession,
+    SessionQuestion,
+    InterviewAnswer,
+    InterviewResult,
+)
 
 __all__ = [
     "User",
@@ -89,4 +96,9 @@ __all__ = [
     "ReplanHistory",
     "RecommendationAction",
     "UserPortfolio",
+    "InterviewQuestion",
+    "InterviewSession",
+    "SessionQuestion",
+    "InterviewAnswer",
+    "InterviewResult",
 ]

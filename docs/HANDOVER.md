@@ -4,6 +4,70 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Mock Interviews: Database Bank, Session Snapshots, and Pure Rubric Scoring Engine (Step 1a)
+
+### Done
+- **Single Alembic Head & Migration 012**:
+  - Confirmed single head at `011_create_user_portfolios`.
+  - Created migration `012_create_mock_interviews.py` adding 5 tables:
+    - `interview_questions`: `career_id` (nullable for shared HR), `type` (`technical`/`hr`), `level` (`beginner`/`intermediate`/`advanced`), `text`, `key_points` JSONB, `sample_answer`, `status` (`draft`/`verified`), `source_note`, `last_verified_at`, `last_verified_by`.
+    - `interview_sessions`: `user_id`, `career_id`, `type`, `level`, `status` (`in_progress`/`completed`/`expired`/`abandoned`), `started_at`, `expires_at`.
+    - `session_questions`: `session_id`, `question_id`, `parent_session_question_id`, `order`, `question_text` (snapshot), `key_points` (snapshot), `is_follow_up`.
+    - `interview_answers`: `session_question_id` (UNIQUE), `user_id`, `answer_text` (max 2000 chars), `submitted_at`.
+    - `interview_results`: `session_id`, `session_question_id`, `rubric_version`, `coverage_score`, `depth_score`, `structure_score`, `overall_score`, `covered_points` JSONB, `scoring_method` (`ai`/`fallback`), `confidence`.
+  - Verified `alembic heads` has single head at `012_create_mock_interviews`.
+- **Pure Versioned Scoring Engine (`app/services/interview_scoring_engine.py`)**:
+  - Rubric version `v1.0.0` with configurable weights (coverage 50%, depth 30%, structure 20%).
+  - `compute_scores_from_coverage`: Pure function computing dimension scores from key-point coverage booleans, depth signal, and structure signal.
+  - Zero penalty for grammar, spelling, or dialect/language choice.
+  - Fallback Scorer (`fallback_score_answer`): Marked `scoring_method="fallback"`, `confidence="low"`.
+    - Documented cap: Normal coverage capped at 70 (full 100 requires AI semantic verification).
+    - Keyword stuffing detection: High keyword density without elaboration is capped strictly at 35 coverage and 15 depth.
+- **Original Seed Data & CLI Verification**:
+  - `app/data/seed/interview_questions.json`: 7 original, rigorously weighted questions (4 SDE technical across beginner/intermediate/advanced; 3 shared HR behavioral questions applying STAR methodology). All seeded as `status="draft"` with weights summing to 1.0.
+  - `scripts/verify_interview_question.py`: CLI to review and verify questions (`--question-id`, `--career`, `--type`, `--all` with required `--reviewer`).
+  - Strict rule enforced: only `verified` questions are served unless `ENV=development` and `ALLOW_DRAFT_QUESTIONS=true`.
+- **Repository Layer (`app/repositories/interview_repository.py`)**:
+  - `get_questions_for_interview`: Filters verified bank questions, raises `InsufficientQuestionsError` if fewer questions exist than required.
+  - `create_session`: Enforces one active session per user (raises `ActiveSessionExistsError`), copies immutable snapshots of question text and `key_points`.
+  - Tests verify that subsequent edits to `interview_questions` never modify `session_questions`.
+- **Comprehensive Unit Tests (`tests/test_mock_interviews_step1a.py`)**:
+  - 14 tests covering all scoring cases (no points, all points, partial coverage, weights sum to 1.0), keyword stuffing penalties, documented caps, zero grammar penalties, version tracking, session snapshot immutability, draft question isolation, and active session limits. All 14 pass in 0.20s.
+
+### Skill Evidence Weight Order & Hook Specification
+Mock interview completions will record low-weight evidence into `SkillEvidence` (`source_type="interview"`, `score=overall_score`, `source_id=session.id`).
+**Proposed Provenance Weight Order**:
+1. `source_type="test"`: Weight 1.0 (verified adaptive diagnostic assessment).
+2. `source_type="project"`: Weight 0.8 (reviewed repository/project deliverable).
+3. `source_type="roadmap"`: Weight 0.5 (verified roadmap milestone completion).
+4. `source_type="interview"`: Weight 0.4 (mock interview conversational practice; capped progression to ensure practice does not bypass formal tests).
+5. `source_type="declared"`: Weight 0.2 (self-reported skill declaration).
+*Note*: Feedback delivered to candidates is practice guidance to aid student learning and interview preparation.
+
+### Pending Steps for Mock Interviews
+- **Step 1b (Endpoints & Session Lifecycle)**:
+  - `POST /v1/interviews/start`: career, level, type (technical/hr), max 3-5 questions. Enforce one active session per user, token-only user ID, 404 for other users' sessions.
+  - `POST /v1/interviews/{id}/answer`: max 2000 chars, never log answer text, returns feedback and sample answer after submission (never before).
+  - `GET /v1/interviews/{id}`: transcript with questions, answers, rubric scores, feedback, sample answers.
+  - `GET /v1/interviews/history`: paginated session history.
+  - `GET /v1/interviews/analytics`: score progression over time across dimensions; returns null if fewer than 2 comparable sessions (same type and rubric_version).
+  - Background expiry job for abandoned/expired sessions; cascading account deletion.
+- **Step 2 (AI Integration & Multilingual Support)**:
+  - AI key-point judging via `LLMGateway` (returns booleans only, never numbers); code computes scores.
+  - Support for Hindi/Hinglish candidate answers.
+  - Dynamic AI follow-up generator (max 1 per question, on-topic, length-capped, post_validator rejects personal detail requests).
+  - Per-session cost accounting and token tracking.
+
+### Active Invariants
+- Zero LLM calls synchronously inside any GET endpoint.
+- All scores, levels, match calculations, and progression rules are deterministic Python code. AI only judges booleans and phrases feedback.
+- Never penalise grammar, spelling, or language choice.
+- Session questions and key points are immutable snapshots.
+- Foreign user resources always return HTTP 404.
+- All request schemas enforce `extra="forbid"`.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Personalized Portfolio: Custom Portfolios, Public Vanity Pages, and Anti-Hallucination AI Text Assistant (Step 1a, Step 1b, Step 2)
 
 ### Done

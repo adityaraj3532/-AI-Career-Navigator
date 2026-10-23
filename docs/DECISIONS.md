@@ -422,6 +422,33 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - High-traffic public portfolios require edge CDN caching or static site generation (SSG) pipelines.
 
+---
+
+## ADR-020: Mock Interview Architecture (Step 1a) – Pure Code Scoring over Key-Point Booleans, Zero Language Penalties, and Session Question Snapshots
+
+- **Options Considered**:
+  - Direct LLM subjective numerical grading (e.g., asking LLM to score 0-100 on rubric) vs AI judging key-point coverage as booleans (`yes`/`no`) with deterministic Python code computing composite scores.
+  - Penalizing grammatical mistakes, spelling typos, and language style vs Zero penalty for language mechanics, focusing purely on substantive technical/behavioral criteria.
+  - Foreign key references to live `interview_questions` table vs Copying question text and key-point snapshots into `session_questions` upon session initiation.
+- **Choice**: **AI Judges Key-Point Booleans while Code Scores, Zero Grammar/Spelling/Language Penalty, and Complete Immutable Snapshot of Session Questions**
+- **Reason**:
+  - **Auditable Deterministic Scoring (AI Judges Booleans, Code Scores)**:
+    - In accordance with ADR-005, LLMs must never assign arbitrary numbers, percentiles, or rankings. Numerical grading by LLMs suffers from temperature drift, scoring inconsistency across identical candidates, and unexplainable point deductions.
+    - Human-curated `key_points` with explicit weights define what constitutes an adequate answer. In Step 1a, deterministic pure scoring functions and a documented fallback scorer evaluate coverage, depth, and structure. When AI is introduced in Step 2, its scope is strictly constrained to answering booleans: *did the candidate mention key point $X$?*. Deterministic Python functions compute the versioned weighted score from those booleans.
+  - **Zero Grammar, Spelling, or Language Choice Penalty**:
+    - Communication in high-stakes technical and behavioral interviews centers on conceptual substance, logical structure, and problem decomposition. Penalizing non-native English speakers or dialectal variations (e.g. Indian English, Hindi/Hinglish) introduces socioeconomic bias without measuring engineering or behavioral aptitude.
+    - Grammar and spelling checks are explicitly excluded from the rubric, and the scoring engine measures depth (elaboration, trade-offs, reasoning) and structure (paragraphs, bullets, progression) without linguistic discrimination.
+  - **Immutability via Question Snapshots**:
+    - Central question banks evolve as hiring standards and framework versions change. If an existing `interview_questions` row or its key points were updated or deleted, direct relational joins would silently corrupt or alter historical candidate scores and replays.
+    - Copying the question text and `key_points` snapshot into `session_questions` guarantees that every past interview transcript remains forever reproducible and truthful to the exact rubric used at the time of the attempt.
+  - **Documented Fallback Scorer Limits**:
+    - The keyword-based fallback scorer is a rough heuristic. To prevent artificial gaming, normal fallback coverage is strictly capped at 70 (full 100 requires AI semantic verification), and keyword stuffing (dumping terms without elaboration) is penalized with a strict 35 cap.
+- **Trade-off**:
+  - Storing snapshot copies of questions and key points increases database storage overhead per session; however, question text and key point JSONBs are small ($< 2$ KB), making the trade-off overwhelmingly positive for data integrity.
+- **Revisit if**:
+  - Automated speech-to-text / real-time voice latency requires edge streaming evaluation rather than asynchronous text evaluation.
+
+
 
 
 
