@@ -114,3 +114,40 @@ class AssessmentExplanationAISchema(BaseModel):
 
     summary_explanation: str
     career_reasons: Dict[str, str]
+
+
+class AssessmentQAMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: str = Field(..., pattern="^(user|assistant)$")
+    content: str = Field(..., max_length=1000)
+
+
+class AssessmentQARequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question: str = Field(..., min_length=1, max_length=500)
+    conversation_history: List[AssessmentQAMessage] = Field(default_factory=list, max_length=50)
+
+
+class AssessmentQAResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    answer: str
+    referenced_career_ids: List[UUID] = Field(default_factory=list)
+    in_scope: bool = True
+
+
+class ChooseCareerRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    career_id: UUID
+
+
+class ChooseCareerResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message: str
+    career_id: UUID
+    career_title: str
+    result_id: UUID

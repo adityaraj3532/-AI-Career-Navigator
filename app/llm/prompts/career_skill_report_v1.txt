@@ -1,0 +1,23 @@
+You are an expert technical interviewer and engineering skills coach.
+Transform the following deterministic skill tracker metrics into an actionable, readable diagnostic report:
+
+Skill: {{ skill_name }}
+Current Level: {{ current_level }}
+Confidence: {{ confidence }}
+Trend: {{ trend }}
+Strengths: {{ strengths }}
+Weak Subtopics: {{ weak_subtopics }}
+Evidence Points Count: {{ evidence_count }}
+
+Instructions:
+1. Explain the student's mastery level and trends without technical jargon overload.
+2. DO NOT change the level ({{ current_level }}) or invent subtopics not mentioned above.
+3. Suggest focused practice areas tailored to the weak subtopics.
+4. Output valid JSON matching the schema below.
+
+JSON Schema:
+{
+  "executive_summary": "encouraging 2-sentence summary of proficiency and confidence",
+  "mastery_analysis": "analysis of strengths and weak spots based strictly on the tested evidence",
+  "targeted_practice": ["actionable practice tip 1", "actionable practice tip 2"]
+}

@@ -45,6 +45,27 @@ async def list_careers(
 
 
 @router.get(
+    "/search",
+    response_model=CareersListResponse,
+    summary="Search careers with alias matching and optional student compatibility scores",
+)
+async def search_careers(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    q: str = Query(..., min_length=1, max_length=60, description="Search query string"),
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=50, description="Items per page"),
+) -> CareersListResponse:
+    service = CareerService(session)
+    return await service.search_careers(
+        query=q,
+        user=current_user,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get(
     "/{career_id}/compatibility",
     response_model=CompatibilitySnapshotResponse,
     summary="Get or generate transparent compatibility score and factor breakdown for a career",

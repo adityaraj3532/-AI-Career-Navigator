@@ -81,3 +81,45 @@ class PortfolioResponse(BaseModel):
     completed_recommendations: List[PortfolioCompletedRecommendation]
     completed_milestones: List[PortfolioCompletedMilestone]
     diagnostic_tests: List[PortfolioDiagnosticTest]
+
+
+class PublicPortfolioProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: UUID
+    education_level: Optional[str] = None
+    target_career: Optional[str] = None
+    subjects_of_interest: List[str] = Field(default_factory=list)
+
+
+class PublicPortfolioResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile: PublicPortfolioProfile
+    summary: PortfolioSummary
+    skills: List[PortfolioSkillItem]
+    completed_recommendations: List[PortfolioCompletedRecommendation]
+    completed_milestones: List[PortfolioCompletedMilestone]
+    diagnostic_tests: List[PortfolioDiagnosticTest]
+
+
+class PortfolioSummaryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    headline: Optional[str] = Field(None, max_length=120)
+
+
+class PortfolioSummaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    elevator_pitch: str
+    key_highlights: List[str]
+    suggested_tagline: str
+
+
+class ResumeExportResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    markdown_resume: str
+    export_format: str = "markdown"
+    generated_at: datetime

@@ -421,3 +421,68 @@ async def test_extra_fields_forbidden(async_client: AsyncClient, test_storage):
         headers=headers,
     )
     assert r1.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_test_history(async_client: AsyncClient, test_storage):
+    """Verify paginated test history returns only current user's attempts."""
+    token = await _signup_and_login(async_client, "history_user@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    career_id = list(test_storage["careers"].keys())[0]
+
+    # Start and finish an attempt
+    start_res = await async_client.post(
+        "/v1/tests/start",
+        json={"career_id": str(career_id), "type": "skill", "topic": "python"},
+        headers=headers,
+    )
+    assert start_res.status_code == 201
+    test_id = start_res.json()["test_id"]
+
+    await async_client.post(
+        f"/v1/tests/{test_id}/finish",
+        json={},
+        headers=headers,
+    )
+
+    # Fetch history
+    res = await async_client.get("/v1/tests/history?page=1&page_size=10", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_count"] == 1
+    assert data["page"] == 1
+    assert data["page_size"] == 10
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == test_id
+    assert data["items"][0]["topic"] == "python"
+    assert data["items"][0]["status"] == "finished"
+
+
+@pytest.mark.asyncio
+async def test_language_advisor(async_client: AsyncClient, test_storage):
+    """Verify deterministic language advisor questionnaire response."""
+    token = await _signup_and_login(async_client, "advisor_user@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Test ML goal -> Python
+    res_ml = await async_client.post(
+        "/v1/tests/language-advisor",
+        json={"primary_goal": "machine_learning", "prior_experience": "beginner"},
+        headers=headers,
+    )
+    assert res_ml.status_code == 200
+    d_ml = res_ml.json()
+    assert d_ml["recommended_language"] == "python"
+    assert "why_it_fits" in d_ml
+    assert len(d_ml["next_steps"]) > 0
+
+    # Test systems goal with intermediate experience -> Rust
+    res_sys = await async_client.post(
+        "/v1/tests/language-advisor",
+        json={"primary_goal": "embedded_systems", "prior_experience": "intermediate"},
+        headers=headers,
+    )
+    assert res_sys.status_code == 200
+    d_sys = res_sys.json()
+    assert d_sys["recommended_language"] == "rust"
+

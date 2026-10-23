@@ -302,3 +302,59 @@ async def test_portfolio_strict_ownership_isolation(async_client: AsyncClient, t
     assert len(data_b["completed_recommendations"]) == 0
     rec_ids_b = [it["item_id"] for it in data_b["completed_recommendations"]]
     assert str(course_id) not in rec_ids_b
+
+
+@pytest.mark.asyncio
+async def test_public_portfolio_and_summary_and_export(async_client: AsyncClient, test_storage):
+    """Verify public portfolio page, AI elevator pitch summary, and markdown resume export."""
+    email = "portfolio_extensions@example.com"
+    token = await _signup_and_login(async_client, email)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Retrieve current user id from /me
+    me_res = await async_client.get("/v1/auth/me", headers=headers)
+    assert me_res.status_code == 200
+    user_id = me_res.json()["id"]
+
+    # 1. Public portfolio endpoint (accessible unauthenticated)
+    pub_res = await async_client.get(f"/v1/portfolio/public/{user_id}")
+    assert pub_res.status_code == 200
+    pub_data = pub_res.json()
+    assert "profile" in pub_data
+    assert "email" not in pub_data["profile"]  # Email must not leak in public view
+    assert pub_data["profile"]["user_id"] == user_id
+    assert "summary" in pub_data
+
+    # Unexisting user returns 404
+    non_existent = str(uuid4())
+    pub_404 = await async_client.get(f"/v1/portfolio/public/{non_existent}")
+    assert pub_404.status_code == 404
+
+    # 2. AI Elevator Pitch Summary (Authenticated)
+    pitch_res = await async_client.post(
+        "/v1/portfolio/summary",
+        json={"headline": "Full-stack developer"},
+        headers=headers,
+    )
+    assert pitch_res.status_code == 200
+    pitch_data = pitch_res.json()
+    assert "elevator_pitch" in pitch_data
+    assert len(pitch_data["key_highlights"]) > 0
+    assert "suggested_tagline" in pitch_data
+
+    # Extra field forbidden on pitch
+    pitch_invalid = await async_client.post(
+        "/v1/portfolio/summary",
+        json={"headline": "Developer", "extra_bad": True},
+        headers=headers,
+    )
+    assert pitch_invalid.status_code == 422
+
+    # 3. Resume Markdown Export (Authenticated)
+    resume_res = await async_client.get("/v1/portfolio/export/resume", headers=headers)
+    assert resume_res.status_code == 200
+    resume_data = resume_res.json()
+    assert "markdown_resume" in resume_data
+    assert "Resume: Candidate Portfolio" in resume_data["markdown_resume"]
+    assert resume_data["export_format"] == "markdown"
+

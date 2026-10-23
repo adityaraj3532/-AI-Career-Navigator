@@ -1,5 +1,5 @@
 from app.models.user import User
-from app.models.auth import RefreshToken
+from app.models.auth import RefreshToken, PasswordResetToken
 from app.models.profile import StudentProfile
 from app.models.career import (
     Career,
@@ -50,6 +50,7 @@ from app.models.recommendation import RecommendationAction
 __all__ = [
     "User",
     "RefreshToken",
+    "PasswordResetToken",
     "StudentProfile",
     "Career",
     "Exam",

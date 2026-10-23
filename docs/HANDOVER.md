@@ -4,6 +4,52 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Complete Resolution of All Deferred Steps Across Entire Codebase
+
+### Done
+- **Roadmap Step 1b (Endpoints & Cloning Engine)**:
+  - `POST /v1/roadmaps`: Clones verified template into independent copies; applies 15% buffer weekly allocation; prevents template mutations from altering active user roadmaps.
+  - `GET /v1/roadmaps/{id}`: Returns complete roadmap tree with phases, items, and completion percentages.
+  - `PATCH /v1/roadmaps/items/{id}`: Validates state machine (`todo` -> `in_progress` -> `done`/`skipped`); automatically creates low-weight skill evidence when marked `done`.
+  - `POST /v1/roadmaps/{id}/replan`: Recalculates unfinished items with a strict 7-day replan cooldown rate limit.
+  - Multi-tenant ownership invariant: Foreign roadmaps return HTTP 404.
+- **Career Catalog Step 1b (Search & Ranking)**:
+  - `GET /v1/careers/search`: Case-insensitive title and alias search with max 60-char query limit; multi-tier ranking (`title` > `alias` > `trigram`); inline compatibility score when student profile is present.
+- **Assessment Results Contextual Q&A & Selection**:
+  - `POST /v1/assessment/results/{id}/ask`: Contextual career counseling with delimiter stripping, 6-message conversational window, and Pydantic validation.
+  - `POST /v1/assessment/results/{id}/choose`: Preferred career selection updating user profile with validation.
+- **Adaptive Diagnostic Tests Stage 2**:
+  - `GET /v1/tests/history`: Paginated attempt history returning user test results, demonstrated levels, confidence scores, and completion timestamps.
+  - `POST /v1/tests/language-advisor`: Deterministic recommendation questionnaire mapping goals (`dsa_interviews`, `machine_learning`, `backend_development`, `systems`, `mobile_development`) to languages, with AI-enhanced coaching explanations via `LLMGateway` and deterministic fallback.
+- **Auth Step 2 (Password Reset & Progressive Rate Limiting)**:
+  - Model & Migration `010_create_password_reset_tokens.py`: `password_reset_tokens` table (`id`, `user_id`, `token_hash`, `expires_at`, `used_at`, `created_at`).
+  - `POST /v1/auth/forgot-password`: Constant-time execution, timing attack safe, 32-byte cryptographically secure tokens with SHA-256 hash and 30-min expiry, enqueues ARQ email dispatch.
+  - `POST /v1/auth/reset-password`: Single-use validation, password update, token invalidation, and complete revocation of all active user refresh sessions.
+  - Progressive rate limiting utility in `app/core/rate_limit.py` returning HTTP 429 when burst limits are exceeded.
+- **ARQ Background Jobs & Workers**:
+  - `generate_career_compatibility_explanation`, `generate_skill_report_narrative`, `cleanup_expired_test_attempts`, `cleanup_expired_auth_tokens`.
+  - Hourly cleanup of abandoned test attempts and daily purge of expired tokens.
+  - AI prompt templates: `career_compatibility_v1.txt`, `career_compare_v1.txt`, `career_skill_report_v1.txt`, `recommendation_enrichment_v1.txt`, `portfolio_pitch_v1.txt`, `language_advisor_v1.txt`.
+- **Gateway Step 2 (Telemetry & Cost Accounting)**:
+  - Token tracking in `TelemetryEvent` (`input_tokens`, `output_tokens`, `estimated_cost_usd`).
+  - Asynchronous daily token counters in Redis (`llm:tokens:prompt`, `llm:tokens:completion`).
+- **Portfolio Extensions**:
+  - `GET /v1/portfolio/public/{user_id}`: Unauthenticated shareable public portfolio omitting private user credentials.
+  - `POST /v1/portfolio/summary`: AI elevator pitch and recruiter highlights.
+  - `GET /v1/portfolio/export/resume`: Formats structured Markdown resume from verified portfolio records.
+- **Verification & Code Quality**:
+  - Entire test suite: **137 passed, 1 skipped** (live Gemini smoke test).
+  - Linting: `ruff check app tests` passes cleanly with **0 errors**.
+  - All constraints maintained: deterministic scores, strict Bearer JWT auth, multi-tenant 404 isolation, `extra="forbid"`, zero LLM calls synchronously inside GET endpoints.
+
+### Active Invariants
+- Zero LLM calls synchronously inside any GET endpoint.
+- All scores, levels, match calculations, and progression rules are deterministic Python code.
+- Foreign user resources always return HTTP 404 (never 403 or leaky 200).
+- All request schemas enforce `extra="forbid"`.
+
+---
+
 ## Session: 2026-10-23 (Antigravity) – Portfolio Read-Only Aggregation (Step 1b)
 
 ### Done

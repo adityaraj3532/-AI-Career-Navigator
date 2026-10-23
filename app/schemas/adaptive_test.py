@@ -85,3 +85,49 @@ class FinishTestResponse(BaseModel):
     recommendations: List[str]
     disclaimer_note: str
     finished_at: datetime
+
+
+class TestHistoryItemSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    career_id: UUID
+    type: str
+    topic: str
+    language: Optional[str] = None
+    status: str
+    demonstrated_level: Optional[str] = None
+    confidence: Optional[str] = None
+    score_percentage: Optional[int] = None
+    total_correct: Optional[int] = None
+    total_answered: int
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class TestHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: List[TestHistoryItemSchema]
+    total_count: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class LanguageAdvisorRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    primary_goal: str = Field(..., description="e.g. 'dsa_interviews', 'backend_development', 'machine_learning', 'embedded_systems'")
+    prior_experience: Optional[str] = Field("beginner", description="'beginner', 'intermediate', 'advanced'")
+    target_role: Optional[str] = Field(None, description="e.g. 'Software Engineer', 'Data Scientist'")
+
+
+class LanguageAdvisorResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recommended_language: str
+    language_display_name: str
+    why_it_fits: str
+    alternative_options: List[str]
+    next_steps: List[str]

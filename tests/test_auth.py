@@ -347,3 +347,121 @@ async def test_get_current_user_me_endpoint(async_client: AsyncClient):
     assert data["email"] == "me_user@example.com"
     assert data["role"] == "student"
     assert data["education_level"] == "college"
+
+
+@pytest.mark.asyncio
+async def test_forgot_and_reset_password_flow(async_client: AsyncClient, test_storage):
+    # 1. Signup user
+    email = "reset_test@example.com"
+    old_pw = "OriginalPass123!"
+    await async_client.post(
+        "/v1/auth/signup",
+        json={"email": email, "password": old_pw, "education_level": "college"},
+    )
+    login_res = await async_client.post(
+        "/v1/auth/login",
+        json={"email": email, "password": old_pw},
+    )
+    old_refresh = login_res.json()["refresh_token"]
+
+    # 2. Forgot password request (returns identical message for any email)
+    res_unknown = await async_client.post(
+        "/v1/auth/forgot-password",
+        json={"email": "nonexistent_email@example.com"},
+    )
+    assert res_unknown.status_code == 200
+    assert "instructions have been sent" in res_unknown.json()["message"]
+
+    res_known = await async_client.post(
+        "/v1/auth/forgot-password",
+        json={"email": email},
+    )
+    assert res_known.status_code == 200
+    assert "instructions have been sent" in res_known.json()["message"]
+
+    from app.core.security import hash_token
+    from app.services.auth_service import AuthService
+
+    # First test invalid token:
+    invalid_res = await async_client.post(
+        "/v1/auth/reset-password",
+        json={"token": "invalid_token_1234567890", "new_password": "NewSecretPass123!"},
+    )
+    assert invalid_res.status_code == 400
+
+    # Test extra='forbid' on reset-password
+    extra_res = await async_client.post(
+        "/v1/auth/reset-password",
+        json={"token": "invalid_token_1234567890", "new_password": "NewSecretPass123!", "hacked": True},
+    )
+    assert extra_res.status_code == 422
+
+    # 5. Successfully reset with valid token
+    valid_raw_token = "valid_reset_token_secret_12345"
+    token_hash = hash_token(valid_raw_token)
+    user_rec = next(u for u in test_storage["users"].values() if u.email == email)
+    
+    # Store token in test_storage / mock token repo
+    auth_srv = AuthService(None)
+    await auth_srv.token_repo.create_password_reset_token(
+        user_id=user_rec.id,
+        token_hash=token_hash,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    )
+
+    reset_res = await async_client.post(
+        "/v1/auth/reset-password",
+        json={"token": valid_raw_token, "new_password": "NewSecretPass123!"},
+    )
+    assert reset_res.status_code == 200
+    assert "successfully reset" in reset_res.json()["message"]
+
+    # Reusing the same reset token is rejected
+    reuse_res = await async_client.post(
+        "/v1/auth/reset-password",
+        json={"token": valid_raw_token, "new_password": "AnotherSecret123!"},
+    )
+    assert reuse_res.status_code == 400
+
+    # Old refresh token is revoked
+    refresh_after = await async_client.post("/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert refresh_after.status_code == 401
+
+    # Old password no longer works
+    login_old = await async_client.post(
+        "/v1/auth/login",
+        json={"email": email, "password": old_pw},
+    )
+    assert login_old.status_code == 401
+
+    # New password works
+    login_new = await async_client.post(
+        "/v1/auth/login",
+        json={"email": email, "password": "NewSecretPass123!"},
+    )
+    assert login_new.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_auth_rate_limiting(async_client: AsyncClient):
+    """Verify progressive rate limiting on forgot password endpoint."""
+    from app.core.rate_limit import reset_rate_limits
+    reset_rate_limits()
+
+    rate_limit_email = "ratelimit_target@example.com"
+    for _ in range(5):
+        resp = await async_client.post(
+            "/v1/auth/forgot-password",
+            json={"email": rate_limit_email},
+        )
+        assert resp.status_code == 200
+
+    # 6th request must exceed rate limit
+    exceeded = await async_client.post(
+        "/v1/auth/forgot-password",
+        json={"email": rate_limit_email},
+    )
+    assert exceeded.status_code == 429
+    assert exceeded.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+
+

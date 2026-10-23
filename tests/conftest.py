@@ -17,7 +17,7 @@ from app.models.assessment import (
     AssessmentResult,
     AssessmentVersion,
 )
-from app.models.auth import RefreshToken
+from app.models.auth import PasswordResetToken, RefreshToken
 from app.models.profile import StudentProfile
 from app.models.adaptive_test import (
     TestQuestionBank,
@@ -41,6 +41,10 @@ from app.models.skill import (
 )
 from app.models.exam_cycle import ExamCycle
 from app.models.roadmap import (
+    ReplanHistory,
+    Roadmap,
+    RoadmapItem,
+    RoadmapPhase,
     RoadmapTemplate,
     TemplatePhase,
     TemplateItem,
@@ -138,6 +142,47 @@ class InMemoryTokenRepo:
             del self.tokens[tid]
         return len(expired_ids)
 
+    async def create_password_reset_token(
+        self,
+        user_id: UUID,
+        token_hash: str,
+        expires_at: datetime,
+    ) -> PasswordResetToken:
+        token_id = uuid4()
+        rec = PasswordResetToken(
+            id=token_id,
+            user_id=user_id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+            created_at=datetime.now(timezone.utc),
+            used_at=None,
+        )
+        if not hasattr(self, "reset_tokens"):
+            self.reset_tokens = {}
+        self.reset_tokens[token_hash] = rec
+        return rec
+
+    async def get_password_reset_token_by_hash(self, token_hash: str) -> Optional[PasswordResetToken]:
+        if not hasattr(self, "reset_tokens"):
+            self.reset_tokens = {}
+        return self.reset_tokens.get(token_hash)
+
+    async def mark_password_reset_token_used(self, token_id: UUID) -> None:
+        if not hasattr(self, "reset_tokens"):
+            self.reset_tokens = {}
+        for t in self.reset_tokens.values():
+            if t.id == token_id:
+                t.used_at = datetime.now(timezone.utc)
+
+    async def delete_expired_password_reset_tokens(self) -> int:
+        if not hasattr(self, "reset_tokens"):
+            self.reset_tokens = {}
+        now = datetime.now(timezone.utc)
+        expired = [h for h, t in self.reset_tokens.items() if t.expires_at < now]
+        for h in expired:
+            del self.reset_tokens[h]
+        return len(expired)
+
 
 class InMemoryCareerRepo:
     def __init__(self, careers_dict: Dict[UUID, Career]) -> None:
@@ -206,6 +251,45 @@ class InMemoryCareerRepo:
                     return None
                 return c
         return None
+
+    async def search_careers(
+        self,
+        query: str,
+        allow_drafts: bool = False,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Career], int]:
+        clean_q = query.strip().lower()
+        if not clean_q:
+            return [], 0
+        matches = []
+        for c in self.careers.values():
+            if not allow_drafts and c.status != "verified":
+                continue
+            t_lower = c.title.lower()
+            c_lower = c.cluster.lower() if c.cluster else ""
+            aliases_lower = [str(a).lower() for a in (c.aliases or [])]
+            if clean_q in t_lower or clean_q in c_lower or any(clean_q in a for a in aliases_lower):
+                matches.append(c)
+
+        def rank_key(c: Career):
+            t_lower = c.title.lower()
+            if t_lower == clean_q:
+                rank = 0
+            elif t_lower.startswith(clean_q):
+                rank = 1
+            elif any(clean_q in str(a).lower() for a in (c.aliases or [])):
+                rank = 2
+            elif clean_q in t_lower:
+                rank = 3
+            else:
+                rank = 4
+            return (rank, c.title, str(c.id))
+
+        matches.sort(key=rank_key)
+        total_count = len(matches)
+        offset = (page - 1) * page_size
+        return matches[offset : offset + page_size], total_count
 
 
 class InMemoryAssessmentRepo:
@@ -628,6 +712,18 @@ class InMemoryAdaptiveTestRepo:
         self.answers[answer.id] = answer
         return answer
 
+    async def list_user_attempts(
+        self,
+        user_id: UUID,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[TestAttempt], int]:
+        user_attempts = [a for a in self.attempts.values() if a.user_id == user_id]
+        user_attempts.sort(key=lambda x: x.started_at, reverse=True)
+        total = len(user_attempts)
+        offset = (page - 1) * page_size
+        return user_attempts[offset : offset + page_size], total
+
 
 class InMemorySkillRepo:
     def __init__(
@@ -994,6 +1090,84 @@ class InMemoryPortfolioRepo:
         return res
 
 
+class InMemoryRoadmapRepo:
+    def __init__(self, storage: Dict[str, Any]) -> None:
+        self.storage = storage
+
+    async def get_verified_template(self, career_id: UUID, allow_drafts: bool = False) -> Optional[RoadmapTemplate]:
+        templates = [
+            t for t in self.storage.get("roadmap_templates", {}).values()
+            if t.career_id == career_id and (allow_drafts or t.status == "verified")
+        ]
+        if not templates:
+            return None
+        templates.sort(key=lambda x: x.version, reverse=True)
+        t = templates[0]
+        t.phases = [p for p in self.storage.get("template_phases", {}).values() if p.template_id == t.id]
+        t.phases.sort(key=lambda x: x.phase_order)
+        t.items = [
+            it for it in self.storage.get("template_items", {}).values()
+            if it.template_id == t.id and (allow_drafts or it.status == "verified")
+        ]
+        t.items.sort(key=lambda x: x.sequence_order)
+        return t
+
+    async def get_active_roadmap_for_user_and_career(self, user_id: UUID, career_id: UUID) -> Optional[Roadmap]:
+        for r in self.storage.get("roadmaps", {}).values():
+            if r.user_id == user_id and r.career_id == career_id and r.status == "active":
+                return r
+        return None
+
+    async def count_user_active_roadmaps(self, user_id: UUID) -> int:
+        return sum(
+            1 for r in self.storage.get("roadmaps", {}).values()
+            if r.user_id == user_id and r.status == "active"
+        )
+
+    async def create_cloned_roadmap(
+        self,
+        roadmap: Roadmap,
+        phases: List[RoadmapPhase],
+        items: List[RoadmapItem],
+    ) -> Roadmap:
+        self.storage.setdefault("roadmaps", {})[roadmap.id] = roadmap
+        for p in phases:
+            self.storage.setdefault("roadmap_phases", {})[p.id] = p
+        for it in items:
+            self.storage.setdefault("roadmap_items", {})[it.id] = it
+        roadmap.phases = phases
+        roadmap.items = items
+        return roadmap
+
+    async def get_roadmap_by_id(self, roadmap_id: UUID) -> Optional[Roadmap]:
+        r = self.storage.get("roadmaps", {}).get(roadmap_id)
+        if not r:
+            return None
+        r.career = self.storage.get("careers", {}).get(r.career_id)
+        r.phases = [p for p in self.storage.get("roadmap_phases", {}).values() if p.roadmap_id == r.id]
+        r.phases.sort(key=lambda x: x.phase_order)
+        r.items = [it for it in self.storage.get("roadmap_items", {}).values() if it.roadmap_id == r.id]
+        r.items.sort(key=lambda x: (x.scheduled_week or 999, x.order_index))
+        r.replan_history = [h for h in self.storage.get("replan_history", {}).values() if h.roadmap_id == r.id]
+        r.replan_history.sort(key=lambda x: x.created_at, reverse=True)
+        return r
+
+    async def get_roadmap_item_by_id(self, item_id: UUID) -> Optional[RoadmapItem]:
+        item = self.storage.get("roadmap_items", {}).get(item_id)
+        if not item:
+            return None
+        item.roadmap = self.storage.get("roadmaps", {}).get(item.roadmap_id)
+        return item
+
+    async def save_roadmap_item(self, item: RoadmapItem) -> RoadmapItem:
+        self.storage.setdefault("roadmap_items", {})[item.id] = item
+        return item
+
+    async def save_replan_history(self, history_record: ReplanHistory) -> ReplanHistory:
+        self.storage.setdefault("replan_history", {})[history_record.id] = history_record
+        return history_record
+
+
 class MockSession:
     def __init__(self, storage: Dict[str, Any]) -> None:
         self.storage = storage
@@ -1018,6 +1192,7 @@ class MockSession:
         )
         self.recommendation_repo = InMemoryRecommendationRepo(storage)
         self.portfolio_repo = InMemoryPortfolioRepo(storage)
+        self.roadmap_repo = InMemoryRoadmapRepo(storage)
 
 
     def add(self, instance):
@@ -1425,6 +1600,7 @@ async def async_client(test_storage, monkeypatch):
     from app.services.skill_service import SkillService
     from app.services.recommendation_service import RecommendationService
     from app.services.portfolio_service import PortfolioService
+    from app.services.roadmap_service import RoadmapService
     from app.api.deps import UserRepository
 
     def mock_auth_init(self, session):
@@ -1492,6 +1668,15 @@ async def async_client(test_storage, monkeypatch):
         self.repo = mock_session.portfolio_repo
 
     monkeypatch.setattr(PortfolioService, "__init__", mock_portfolio_service_init)
+
+    def mock_roadmap_service_init(self, session):
+        self.session = mock_session
+        self.repo = mock_session.roadmap_repo
+        self.career_repo = mock_session.career_repo
+        self.profile_repo = mock_session.profile_repo
+        self.skill_repo = mock_session.skill_repo
+
+    monkeypatch.setattr(RoadmapService, "__init__", mock_roadmap_service_init)
 
     async def override_get_db():
         yield mock_session

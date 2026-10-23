@@ -178,6 +178,10 @@ class SkillService:
                 )
             )
 
+        import hashlib
+        import json
+        from app.core.redis import get_redis_client
+
         report_text = generate_fallback_report_text(
             skill_name=skill.name,
             level=calc_level,
@@ -186,6 +190,21 @@ class SkillService:
             weaknesses=weak_subtopics,
             evidence_count=len(all_evidence),
         )
+
+        evidence_str = "".join(f"{e.id}:{e.score}:{e.created_at}" for e in all_evidence)
+        evidence_hash = hashlib.sha256(evidence_str.encode()).hexdigest()[:16]
+
+        status_val = "fallback"
+        try:
+            redis = get_redis_client()
+            cached = await redis.get(f"skill_narrative:{user_id}:{skill.id}:{evidence_hash}")
+            if cached:
+                cached_obj = json.loads(cached)
+                report_text = f"{cached_obj.get('executive_summary', '')}\n\n{cached_obj.get('mastery_analysis', '')}".strip()
+                if report_text:
+                    status_val = "ready"
+        except Exception:
+            pass
 
         return SkillReportResponse(
             skill_id=skill.id,
@@ -197,7 +216,7 @@ class SkillService:
             weak_subtopics=weak_subtopics,
             trend_over_time=trend,
             recommended_next_items=recommended_items,
-            report_status="fallback",
+            report_status=status_val,
             report_text=report_text,
             evidence_count=len(all_evidence),
         )

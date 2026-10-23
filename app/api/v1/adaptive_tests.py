@@ -1,6 +1,6 @@
 from typing import Annotated
 from uuid import UUID
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -9,14 +9,46 @@ from app.models.user import User
 from app.schemas.adaptive_test import (
     FinishTestRequest,
     FinishTestResponse,
+    LanguageAdvisorRequest,
+    LanguageAdvisorResponse,
     StartTestRequest,
     StartTestResponse,
     SubmitAnswerRequest,
     SubmitAnswerResponse,
+    TestHistoryResponse,
 )
 from app.services.adaptive_test_service import AdaptiveTestService
 
 router = APIRouter(prefix="/tests", tags=["Adaptive Diagnostic Tests"])
+
+
+@router.get(
+    "/history",
+    response_model=TestHistoryResponse,
+    summary="Get paginated history of past adaptive test attempts for the current user",
+)
+async def get_test_history(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=50),
+) -> TestHistoryResponse:
+    service = AdaptiveTestService(session)
+    return await service.get_test_history(current_user, page=page, page_size=page_size)
+
+
+@router.post(
+    "/language-advisor",
+    response_model=LanguageAdvisorResponse,
+    summary="Deterministic programming language recommendation questionnaire with AI-guided explanation",
+)
+async def get_language_advice(
+    req: LanguageAdvisorRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> LanguageAdvisorResponse:
+    service = AdaptiveTestService(session)
+    return await service.get_language_advice(current_user, req)
 
 
 @router.post(

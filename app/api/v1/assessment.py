@@ -8,8 +8,12 @@ from app.core.database import get_db
 from app.core.exceptions import AppException
 from app.models.user import User
 from app.schemas.assessment import (
+    AssessmentQARequest,
+    AssessmentQAResponse,
     AssessmentResultResponse,
     AttemptResponse,
+    ChooseCareerRequest,
+    ChooseCareerResponse,
     QuestionsListResponse,
     SaveAnswersRequest,
     SubmitAssessmentRequest,
@@ -147,3 +151,35 @@ async def get_result_by_id(
 ) -> AssessmentResultResponse:
     service = AssessmentService(session)
     return await service.get_result_by_id(result_id, current_user.id)
+
+
+@router.post(
+    "/results/{result_id}/ask",
+    response_model=AssessmentQAResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ask vocational questions about assessment results and suggested careers",
+)
+async def ask_assessment_question(
+    result_id: UUID,
+    req: AssessmentQARequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> AssessmentQAResponse:
+    service = AssessmentService(session)
+    return await service.ask_question(current_user, result_id, req)
+
+
+@router.post(
+    "/results/{result_id}/choose",
+    response_model=ChooseCareerResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Choose target career from assessment result",
+)
+async def choose_career_from_result(
+    result_id: UUID,
+    req: ChooseCareerRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> ChooseCareerResponse:
+    service = AssessmentService(session)
+    return await service.choose_career(current_user, result_id, req)

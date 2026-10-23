@@ -414,3 +414,81 @@ async def test_ai_unknown_career_id_triggers_deterministic_fallback(
     for sug in data["career_suggestions"]:
         assert "outstanding match" in sug["reason"] or "profile" in sug["reason"]
 
+
+@pytest.mark.asyncio
+async def test_assessment_qa_and_choose_career(
+    async_client: AsyncClient,
+    test_storage,
+):
+    for c in test_storage["careers"].values():
+        c.status = "verified"
+
+    # User A registers, takes assessment, submits
+    token_a = await _register_and_login(async_client, "qa_user_a@example.com")
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+
+    q_res = await async_client.get("/v1/assessment/questions", headers=headers_a)
+    questions = q_res.json()["questions"]
+    answers = [{"question_id": q["id"], "value": 5} for q in questions]
+    await async_client.post("/v1/assessment/answers", headers=headers_a, json={"answers": answers})
+
+    sub_res = await async_client.post("/v1/assessment/submit", headers=headers_a, json={})
+    assert sub_res.status_code == 200
+    res_data = sub_res.json()
+    result_id = res_data["id"]
+    chosen_career_id = res_data["career_suggestions"][0]["career_id"]
+
+    # 1. Ask in-scope question
+    qa_payload = {
+        "question": "Why is Software Development Engineer recommended for me?",
+        "conversation_history": [],
+    }
+    qa_res = await async_client.post(
+        f"/v1/assessment/results/{result_id}/ask",
+        headers=headers_a,
+        json=qa_payload,
+    )
+    assert qa_res.status_code == 200
+    qa_data = qa_res.json()
+    assert "answer" in qa_data
+    assert len(qa_data["answer"]) > 0
+
+    # 2. User B tries to ask on User A's result -> 404 (Ownership check)
+    token_b = await _register_and_login(async_client, "qa_user_b@example.com")
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+    qa_res_b = await async_client.post(
+        f"/v1/assessment/results/{result_id}/ask",
+        headers=headers_b,
+        json=qa_payload,
+    )
+    assert qa_res_b.status_code == 404
+
+    # 3. Choose Career from result
+    choose_payload = {"career_id": chosen_career_id}
+    choose_res = await async_client.post(
+        f"/v1/assessment/results/{result_id}/choose",
+        headers=headers_a,
+        json=choose_payload,
+    )
+    assert choose_res.status_code == 200
+    choose_data = choose_res.json()
+    assert choose_data["career_id"] == chosen_career_id
+    assert "successfully chosen" in choose_data["message"].lower()
+
+    # 4. Choosing unknown career -> 404
+    choose_bad_res = await async_client.post(
+        f"/v1/assessment/results/{result_id}/choose",
+        headers=headers_a,
+        json={"career_id": str(uuid.uuid4())},
+    )
+    assert choose_bad_res.status_code == 404
+
+    # 5. User B tries to choose on User A's result -> 404
+    choose_b_res = await async_client.post(
+        f"/v1/assessment/results/{result_id}/choose",
+        headers=headers_b,
+        json=choose_payload,
+    )
+    assert choose_b_res.status_code == 404
+
+

@@ -371,6 +371,29 @@ This document tracks all foundational technology and architecture choices, evalu
 - **Revisit if**:
   - Public vanity URLs (shareable portfolio links) or heavy PDF generation require Redis caching or background pre-rendering.
 
+---
+
+## ADR-018: Completion Architecture for All Deferred Lifecycle Steps – Background ARQ Workers, Password Reset Tokens, Public Portfolio, and Roadmap Endpoints
+
+- **Options Considered**:
+  - Synchronous execution of AI narratives & explanations inside HTTP endpoints vs Asynchronous background generation in ARQ workers with Redis caching.
+  - Stateful session tracking for password resets vs Single-use 30-minute cryptographically secure SHA-256 tokens with automatic session invalidation.
+- **Choice**: **ARQ Async Workers with Redis Cache Invalidation, Cryptographic Single-Use Reset Tokens, Deterministic Code Fallbacks, and Multi-Tenant Isolation Invariant**
+- **Reason**:
+  - **Zero LLM Latency on Read Paths**:
+    - AI narratives for skill reports (`career_skill_report_v1`), compatibility explanations (`career_compatibility_v1`), and comparative verdicts (`career_compare_v1`) run asynchronously via ARQ workers and cache in Redis by deterministic evidence hash. GET endpoints return immediate fallback / pending statuses without blocking user traffic.
+  - **Password Security & Enumeration Prevention**:
+    - Password reset requests (`POST /v1/auth/forgot-password`) return identical responses regardless of whether the email exists, neutralizing timing/enumeration attacks with dummy bcrypt operations. Tokens are 48-byte URL-safe strings hashed with SHA-256 in the database with a 30-minute lifespan. Resetting passwords invalidates all existing refresh tokens.
+  - **Public Portfolio Privacy**:
+    - The public portfolio endpoint (`GET /v1/portfolio/public/{user_id}`) deliberately strips user emails and private credentials, presenting only verified skills, milestones, and credentials for recruiter sharing.
+  - **Roadmap Independent Cloning**:
+    - Roadmaps cloned from templates generate fresh IDs and copied milestone entities, ensuring template revisions never mutate active user plans. Re-planning is rate-limited to once per 7 days with a 15% allocation buffer.
+- **Trade-off**:
+  - Requires maintaining worker process (`WorkerSettings`) and Redis instances alongside the web server.
+- **Revisit if**:
+  - High-volume enterprise usage necessitates multi-region distributed worker clusters.
+
+
 
 
 

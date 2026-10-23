@@ -14,9 +14,13 @@ from app.repositories.assessment_repository import AssessmentRepository
 from app.repositories.career_repository import CareerRepository
 from app.schemas.assessment import (
     AssessmentExplanationAISchema,
+    AssessmentQARequest,
+    AssessmentQAResponse,
     AssessmentResultResponse,
     AttemptResponse,
     CareerSuggestionItem,
+    ChooseCareerRequest,
+    ChooseCareerResponse,
     QuestionResponse,
     QuestionsListResponse,
     SaveAnswersRequest,
@@ -450,4 +454,114 @@ class AssessmentService:
             ai_explanation=result.ai_explanation,
             disclaimer_note=result.disclaimer_note,
             created_at=result.created_at,
+        )
+
+    async def ask_question(
+        self,
+        user: User,
+        result_id: UUID,
+        req: AssessmentQARequest,
+    ) -> AssessmentQAResponse:
+        result = await self.repo.get_result_by_id(result_id, user.id)
+        if not result:
+            raise AppException(
+                status_code=404,
+                code="RESULT_NOT_FOUND",
+                message="Assessment result not found or access denied.",
+            )
+
+        clean_question = req.question.replace("<<<", "").replace(">>>", "").strip()
+
+        suggested_careers = result.career_suggestions or []
+        valid_career_ids = {str(s["career_id"]) for s in suggested_careers}
+        catalog_lines = [
+            f"- Career ID: {s['career_id']} | Title: {s['title']} | Cluster: {s['cluster']} | Overview: {s['overview']}"
+            for s in suggested_careers
+        ]
+        career_catalog_str = "\n".join(catalog_lines)
+
+        history_lines = [
+            f"{m.role.capitalize()}: {m.content}"
+            for m in req.conversation_history[-6:]
+        ]
+        conversation_history_str = "\n".join(history_lines) if history_lines else "No previous messages."
+
+        def fallback_factory() -> AssessmentQAResponse:
+            return AssessmentQAResponse(
+                answer="I can only answer questions related to your career assessment results and suggested career paths.",
+                referenced_career_ids=[],
+                in_scope=False,
+            )
+
+        def post_validator(ai_data: AssessmentQAResponse) -> bool:
+            if not ai_data.in_scope:
+                return True
+            for cid in ai_data.referenced_career_ids:
+                if str(cid) not in valid_career_ids:
+                    return False
+            return True
+
+        scores_str = "\n".join(f"- {dim}: {score:.1f}" for dim, score in sorted(result.dimension_scores.items()))
+
+        gateway_resp = await self.gateway.execute_prompt(
+            prompt_name="assessment_qa",
+            prompt_version=1,
+            schema=AssessmentQAResponse,
+            fallback_factory=fallback_factory,
+            system_variables={
+                "holland_code": result.holland_code,
+                "holland_code_label": result.holland_code_label or "",
+                "dimension_scores": scores_str,
+                "career_catalog": career_catalog_str,
+                "conversation_history": conversation_history_str,
+                "question": clean_question,
+            },
+            post_validator=post_validator,
+        )
+
+        resp_data = gateway_resp.data
+        if not resp_data.in_scope:
+            return fallback_factory()
+        return resp_data
+
+    async def choose_career(
+        self,
+        user: User,
+        result_id: UUID,
+        req: ChooseCareerRequest,
+    ) -> ChooseCareerResponse:
+        settings = get_settings()
+        allow_drafts = (settings.ENVIRONMENT == "development" and settings.ALLOW_DRAFT_CAREERS)
+
+        result = await self.repo.get_result_by_id(result_id, user.id)
+        if not result:
+            raise AppException(
+                status_code=404,
+                code="RESULT_NOT_FOUND",
+                message="Assessment result not found or access denied.",
+            )
+
+        career = await self.career_repo.get_by_id(req.career_id, allow_drafts=allow_drafts)
+        if not career:
+            raise AppException(
+                status_code=404,
+                code="CAREER_NOT_FOUND",
+                message="Target career not found or unverified.",
+            )
+
+        # Update profile if available
+        if hasattr(self.session, "profile_repo"):
+            prof_repo = getattr(self.session, "profile_repo")
+            profile = await prof_repo.get_by_user_id(user.id)
+            if profile:
+                profile.preferred_career_id = career.id
+                profile.target_career = career.title
+                if hasattr(prof_repo, "save"):
+                    await prof_repo.save(profile)
+
+        return ChooseCareerResponse(
+            message=f"Successfully chosen {career.title} as your target career.",
+            career_id=career.id,
+            career_title=career.title,
+            result_id=result.id,
         )

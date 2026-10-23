@@ -117,3 +117,49 @@ class CareerRepository:
             stmt = stmt.where(Career.status == "verified")
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()
+
+    async def search_careers(
+        self,
+        query: str,
+        allow_drafts: bool = False,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Career], int]:
+        clean_q = query.strip()
+        if not clean_q:
+            return [], 0
+
+        stmt = select(Career)
+        if not allow_drafts:
+            stmt = stmt.where(Career.status == "verified")
+
+        stmt = stmt.where(
+            or_(
+                Career.title.ilike(f"%{clean_q}%"),
+                Career.cluster.ilike(f"%{clean_q}%"),
+                func.array_to_string(Career.aliases, ",").ilike(f"%{clean_q}%"),
+            )
+        )
+        res = await self.session.execute(stmt)
+        careers = list(res.scalars().all())
+
+        clean_lower = clean_q.lower()
+
+        def rank_key(c: Career):
+            t_lower = c.title.lower()
+            if t_lower == clean_lower:
+                rank = 0
+            elif t_lower.startswith(clean_lower):
+                rank = 1
+            elif any(clean_lower in str(a).lower() for a in (c.aliases or [])):
+                rank = 2
+            elif clean_lower in t_lower:
+                rank = 3
+            else:
+                rank = 4
+            return (rank, c.title, str(c.id))
+
+        careers.sort(key=rank_key)
+        total_count = len(careers)
+        offset = (page - 1) * page_size
+        return careers[offset : offset + page_size], total_count

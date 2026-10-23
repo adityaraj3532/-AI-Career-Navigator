@@ -8,6 +8,7 @@ from app.api.v1.health import router as health_router
 from app.api.v1.profile import router as profile_router
 from app.api.v1.recommendations import router as recommendations_router
 from app.api.v1.portfolio import router as portfolio_router
+from app.api.v1.roadmaps import router as roadmaps_router
 from app.api.v1.shortlist import router as shortlist_router
 from app.api.v1.skills import router as skills_router
 
@@ -23,5 +24,6 @@ api_v1_router.include_router(adaptive_tests_router)
 api_v1_router.include_router(skills_router)
 api_v1_router.include_router(recommendations_router)
 api_v1_router.include_router(portfolio_router)
+api_v1_router.include_router(roadmaps_router)
 
 

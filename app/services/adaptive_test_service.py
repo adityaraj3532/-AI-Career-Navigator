@@ -11,12 +11,16 @@ from app.repositories.adaptive_test_repository import AdaptiveTestRepository
 from app.repositories.career_repository import CareerRepository
 from app.schemas.adaptive_test import (
     FinishTestResponse,
+    LanguageAdvisorRequest,
+    LanguageAdvisorResponse,
     QuestionOptionSchema,
     QuestionPublicSchema,
     StartTestRequest,
     StartTestResponse,
     SubmitAnswerRequest,
     SubmitAnswerResponse,
+    TestHistoryItemSchema,
+    TestHistoryResponse,
 )
 from app.services.adaptive_test_engine import (
     calculate_next_difficulty,
@@ -367,4 +371,179 @@ class AdaptiveTestService:
             recommendations=recs,
             disclaimer_note=disclaimer,
             finished_at=now,
+        )
+
+    async def get_test_history(
+        self,
+        user: User,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> TestHistoryResponse:
+        attempts, total = await self.repo.list_user_attempts(user.id, page=page, page_size=page_size)
+        items = [
+            TestHistoryItemSchema(
+                id=a.id,
+                career_id=a.career_id,
+                type=a.type,
+                topic=a.topic,
+                language=a.language,
+                status=a.status,
+                demonstrated_level=a.demonstrated_level,
+                confidence=a.confidence,
+                score_percentage=a.score_percentage,
+                total_correct=a.total_correct,
+                total_answered=len(a.answers) if a.answers else 0,
+                started_at=a.started_at,
+                completed_at=a.finished_at,
+            )
+            for a in attempts
+        ]
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+        return TestHistoryResponse(
+            items=items,
+            total_count=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+
+    async def get_language_advice(
+        self,
+        user: User,
+        req: LanguageAdvisorRequest,
+    ) -> LanguageAdvisorResponse:
+        from pydantic import BaseModel
+        from app.llm.gateway import LLMGateway
+
+        goal = (req.primary_goal or "").lower().strip()
+        exp = (req.prior_experience or "beginner").lower().strip()
+
+        if any(k in goal for k in ["ml", "machine_learning", "data", "ai", "intelligence"]):
+            rec_lang = "python"
+            display_name = "Python"
+            baseline_why = "Python is the undisputed standard for data science and AI with PyTorch, TensorFlow, and Pandas."
+            alt_options = ["r", "julia", "c++"]
+            steps = [
+                "Install Python and Jupyter notebooks",
+                "Learn NumPy and Pandas for data manipulation",
+                "Build end-to-end ML models with Scikit-learn",
+            ]
+        elif any(k in goal for k in ["system", "os", "embedded", "driver", "kernel"]):
+            if exp in ["intermediate", "advanced"]:
+                rec_lang = "rust"
+                display_name = "Rust"
+                baseline_why = "Rust delivers zero-cost abstractions with fearless concurrency and guaranteed memory safety."
+                alt_options = ["c++", "c", "zig"]
+                steps = [
+                    "Master the borrow checker and ownership model",
+                    "Build systems utilities using standard library pointers and structs",
+                    "Implement multi-threaded CLI tools",
+                ]
+            else:
+                rec_lang = "c"
+                display_name = "C"
+                baseline_why = "C is the foundation of systems and hardware programming, providing direct hardware manipulation."
+                alt_options = ["c++", "rust"]
+                steps = [
+                    "Learn pointers, memory allocation, and structs",
+                    "Understand stack vs heap memory layout",
+                    "Write modular C code with header files and Makefiles",
+                ]
+        elif any(k in goal for k in ["backend", "api", "server", "microservice"]):
+            if exp in ["intermediate", "advanced"]:
+                rec_lang = "go"
+                display_name = "Go (Golang)"
+                baseline_why = "Go provides industry-leading concurrency via goroutines and channels, ideal for cloud microservices."
+                alt_options = ["java", "python", "typescript"]
+                steps = [
+                    "Learn Go routines, channels, and synchronization primitives",
+                    "Build high-throughput REST APIs using net/http",
+                    "Package applications into lightweight scratch Docker containers",
+                ]
+            else:
+                rec_lang = "python"
+                display_name = "Python (FastAPI)"
+                baseline_why = "Python offers minimal cognitive overhead and rich ecosystem for building backend REST APIs."
+                alt_options = ["javascript", "go", "java"]
+                steps = [
+                    "Learn Python async/await patterns",
+                    "Build typed APIs using FastAPI and Pydantic",
+                    "Connect and query relational databases using SQLAlchemy",
+                ]
+        elif any(k in goal for k in ["mobile", "android", "ios", "app"]):
+            rec_lang = "kotlin"
+            display_name = "Kotlin / Android"
+            baseline_why = "Kotlin is Google's preferred language for modern Android development with Jetpack Compose."
+            alt_options = ["swift", "dart", "react_native"]
+            steps = [
+                "Install Android Studio and set up an emulator",
+                "Learn Kotlin coroutines and null safety",
+                "Build reactive UIs with Jetpack Compose",
+            ]
+        elif any(k in goal for k in ["dsa", "interview", "algo", "competitive"]):
+            if exp in ["intermediate", "advanced"]:
+                rec_lang = "cpp"
+                display_name = "C++ (STL)"
+                baseline_why = "C++ provides peak execution performance and the comprehensive Standard Template Library for competitive programming."
+                alt_options = ["java", "python"]
+                steps = [
+                    "Master STL containers (vector, map, priority_queue)",
+                    "Practice standard dynamic programming and graph patterns",
+                    "Participate in timed mock interview rounds",
+                ]
+            else:
+                rec_lang = "python"
+                display_name = "Python"
+                baseline_why = "Python lets you focus on algorithmic reasoning without syntax distractions during technical interviews."
+                alt_options = ["cpp", "java"]
+                steps = [
+                    "Implement fundamental data structures (arrays, hash maps, queues)",
+                    "Solve LeetCode Easy problems daily",
+                    "Analyze time and space complexity with Big-O notation",
+                ]
+        else:
+            rec_lang = "python"
+            display_name = "Python"
+            baseline_why = "Python is the most versatile entry programming language across web, automation, data science, and scripting."
+            alt_options = ["javascript", "go", "java"]
+            steps = [
+                "Learn Python fundamentals (data structures, loops, functions)",
+                "Build a small practical project",
+                "Write unit tests with pytest",
+            ]
+
+        class AdvisorOutput(BaseModel):
+            why_it_fits: str
+            next_steps: list[str]
+
+        explanation = baseline_why
+        next_steps = steps
+
+        try:
+            gateway = LLMGateway()
+            res = await gateway.generate(
+                prompt_name="language_advisor_v1",
+                inputs={
+                    "recommended_language": rec_lang,
+                    "language_display_name": display_name,
+                    "primary_goal": req.primary_goal,
+                    "prior_experience": req.prior_experience or "beginner",
+                    "target_role": req.target_role or "Software Engineer",
+                    "baseline_why": baseline_why,
+                },
+                output_schema=AdvisorOutput,
+                fallback=AdvisorOutput(why_it_fits=baseline_why, next_steps=steps),
+            )
+            explanation = res.data.why_it_fits
+            if res.data.next_steps:
+                next_steps = res.data.next_steps
+        except Exception:
+            pass
+
+        return LanguageAdvisorResponse(
+            recommended_language=rec_lang,
+            language_display_name=display_name,
+            why_it_fits=explanation,
+            alternative_options=alt_options,
+            next_steps=next_steps,
         )

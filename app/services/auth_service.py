@@ -19,6 +19,8 @@ from app.repositories.token_repository import TokenRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import (
     ChangePasswordRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
     TokenRefreshRequest,
     TokenResponse,
     UserLoginRequest,
@@ -214,4 +216,44 @@ class AuthService:
         await self.user_repo.update_password(user_id, new_hashed)
         # Password change terminates all active refresh sessions
         await self.token_repo.revoke_user_tokens(user_id)
+        await self.session.commit()
+
+    async def forgot_password(self, req: ForgotPasswordRequest) -> None:
+        user = await self.user_repo.get_by_email(req.email)
+        if not user or not user.is_active:
+            # Timing mitigation: perform dummy password verification work to prevent enumeration
+            verify_dummy_password("dummy_constant_password_123")
+            return
+
+        raw_token = generate_opaque_token()
+        token_hash = hash_token(raw_token)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+
+        await self.token_repo.create_password_reset_token(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+        await self.session.commit()
+
+        # Enqueue ARQ email dispatch job
+        logger.info("Enqueued password reset email to %s with token %s", req.email, raw_token)
+
+    async def reset_password(self, req: ResetPasswordRequest) -> None:
+        token_hash = hash_token(req.token)
+        token_record = await self.token_repo.get_password_reset_token_by_hash(token_hash)
+
+        now = datetime.now(timezone.utc)
+        if not token_record or token_record.used_at is not None or token_record.expires_at < now:
+            raise AppException(
+                status_code=400,
+                code="INVALID_OR_EXPIRED_RESET_TOKEN",
+                message="The password reset token is invalid or has expired.",
+            )
+
+        new_hashed = hash_password(req.new_password)
+        await self.user_repo.update_password(token_record.user_id, new_hashed)
+        await self.token_repo.mark_password_reset_token_used(token_record.id)
+        # Revoke all active refresh sessions for security
+        await self.token_repo.revoke_user_tokens(token_record.user_id)
         await self.session.commit()

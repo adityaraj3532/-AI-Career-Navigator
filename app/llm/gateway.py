@@ -99,6 +99,10 @@ class LLMGateway:
                 raise PostValidationError("Post-validation failed: referenced IDs not found in database.")
 
             latency_ms = (time.monotonic() - start_time) * 1000
+            in_tokens = max(1, len(rendered_prompt) // 4)
+            out_tokens = max(1, len(raw_response) // 4)
+            cost_usd = (in_tokens * 0.0000001) + (out_tokens * 0.0000004)
+
             telemetry = TelemetryEvent(
                 prompt_name=prompt_name,
                 prompt_version=prompt_version,
@@ -107,9 +111,13 @@ class LLMGateway:
                 status="success",
                 fallback_used=False,
                 attempts=attempts,
+                input_tokens=in_tokens,
+                output_tokens=out_tokens,
+                estimated_cost_usd=cost_usd,
             )
             self.last_telemetry = telemetry
             log_telemetry(telemetry)
+            self._record_telemetry_metrics(in_tokens, out_tokens)
             return GatewayResponse(data=parsed_data, telemetry=telemetry)
 
         except (ValidationError, json.JSONDecodeError) as val_err:
@@ -188,3 +196,39 @@ class LLMGateway:
         # Parse JSON
         parsed_json = json.loads(raw_text)
         return schema.model_validate(parsed_json)
+
+    async def generate(
+        self,
+        prompt_name: str,
+        inputs: Dict[str, Any],
+        output_schema: Type[T],
+        fallback: T,
+        version: int = 1,
+        post_validator: Optional[Callable[[T], bool]] = None,
+    ) -> GatewayResponse[T]:
+        """Convenience method to execute a prompt template by name and schema with fallback."""
+        return await self.execute_prompt(
+            prompt_name=prompt_name,
+            prompt_version=version,
+            schema=output_schema,
+            fallback_factory=lambda: fallback,
+            user_inputs={k: str(v) for k, v in inputs.items()},
+            post_validator=post_validator,
+        )
+
+    def _record_telemetry_metrics(self, in_tokens: int, out_tokens: int) -> None:
+        try:
+            from app.core.redis import get_redis_client
+            redis = get_redis_client()
+            async def _bg() -> None:
+                try:
+                    await redis.incrby("llm:tokens:prompt", in_tokens)
+                    await redis.incrby("llm:tokens:completion", out_tokens)
+                except Exception:
+                    pass
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                task = loop.create_task(_bg())
+                task.add_done_callback(lambda _: None)
+        except Exception:
+            pass

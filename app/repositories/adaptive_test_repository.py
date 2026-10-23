@@ -1,6 +1,6 @@
 import random
 from datetime import datetime
-from typing import Optional, Set
+from typing import List, Optional, Set, Tuple
 from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -202,3 +202,24 @@ class AdaptiveTestRepository:
         await self.session.commit()
         await self.session.refresh(answer)
         return answer
+
+    async def list_user_attempts(
+        self,
+        user_id: UUID,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[TestAttempt], int]:
+        count_stmt = select(func.count(TestAttempt.id)).where(TestAttempt.user_id == user_id)
+        count_res = await self.session.execute(count_stmt)
+        total = count_res.scalar() or 0
+
+        stmt = (
+            select(TestAttempt)
+            .where(TestAttempt.user_id == user_id)
+            .order_by(TestAttempt.started_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        res = await self.session.execute(stmt)
+        attempts = list(res.scalars().all())
+        return attempts, total

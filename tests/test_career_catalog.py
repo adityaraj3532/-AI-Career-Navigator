@@ -282,3 +282,35 @@ async def test_detail_query_count_does_not_grow_with_linked_records(test_storage
     for rel_name in ["exams", "colleges", "courses", "certificates", "internships", "related_careers"]:
         rel_prop = getattr(Career, rel_name).property
         assert rel_prop.lazy == "selectin", f"Relationship '{rel_name}' must use lazy='selectin' for bounded eager loading"
+
+
+@pytest.mark.asyncio
+async def test_career_search_by_title_and_alias(async_client: AsyncClient, test_storage):
+    # Ensure careers are verified
+    for c in test_storage["careers"].values():
+        c.status = "verified"
+
+    # 1. Search by title keyword (e.g. "Software" or "Data")
+    res1 = await async_client.get("/v1/careers/search?q=Software")
+    assert res1.status_code == 200
+    data1 = res1.json()
+    assert data1["total_count"] >= 1
+    assert any("software" in it["title"].lower() for it in data1["items"])
+
+    # 2. Search by alias
+    res2 = await async_client.get("/v1/careers/search?q=SDE")
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert data2["total_count"] >= 1
+
+    # 3. Query exceeding 60 characters is rejected by FastAPI validation -> 422
+    long_q = "a" * 65
+    res_long = await async_client.get(f"/v1/careers/search?q={long_q}")
+    assert res_long.status_code == 422
+
+    # 4. Search with authenticated user returns compatibility score if assessment completed
+    token = await _signup_and_login(async_client, "career_search_user@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    res_auth = await async_client.get("/v1/careers/search?q=Engineer", headers=headers)
+    assert res_auth.status_code == 200
+

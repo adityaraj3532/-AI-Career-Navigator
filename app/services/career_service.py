@@ -102,6 +102,67 @@ class CareerService:
             total_pages=total_pages,
         )
 
+    async def search_careers(
+        self,
+        query: str,
+        user: Optional[User] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> CareersListResponse:
+        safe_page_size = min(max(1, page_size), 50)
+        safe_page = max(1, page)
+        settings = get_settings()
+        allow_drafts = (settings.ENVIRONMENT == "development" and settings.ALLOW_DRAFT_CAREERS)
+
+        careers, total_count = await self.repo.search_careers(
+            query=query[:60],
+            allow_drafts=allow_drafts,
+            page=safe_page,
+            page_size=safe_page_size,
+        )
+
+        user_scores = None
+        if user is not None:
+            latest_result = await self.assessment_repo.get_latest_result(user.id)
+            if latest_result:
+                user_scores = latest_result.dimension_scores
+
+        items = []
+        for c in careers:
+            comp_score = None
+            if user_scores and c.dimension_weights:
+                sim = calculate_career_similarity(user_scores, c.dimension_weights)
+                comp_score = int(round(sim * 100))
+
+            salary_schema = None
+            if c.salary_ranges:
+                salary_schema = SalaryRangesSchema(**c.salary_ranges)
+
+            items.append(
+                CareerListItem(
+                    id=c.id,
+                    code=c.code,
+                    title=c.title,
+                    cluster=c.cluster,
+                    aliases=c.aliases or [],
+                    overview=c.overview,
+                    demand=c.demand,
+                    salary_ranges=salary_schema,
+                    status=c.status,
+                    source_url=c.source_url,
+                    compatibility_score=comp_score,
+                )
+            )
+
+        total_pages = math.ceil(total_count / safe_page_size) if total_count > 0 else 0
+        return CareersListResponse(
+            items=items,
+            page=safe_page,
+            page_size=safe_page_size,
+            total_count=total_count,
+            total_pages=total_pages,
+        )
+
     async def get_career_detail(
         self,
         career_id: UUID,
