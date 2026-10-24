@@ -20,13 +20,17 @@ import argparse
 import asyncio
 from datetime import datetime, timedelta, timezone
 import logging
+import os
+from pathlib import Path
+import secrets
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.security import hash_password
 from app.models.assessment import (
@@ -60,8 +64,15 @@ logger = logging.getLogger("scripts.seed_demo_account")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
-DEMO_EMAIL_DEFAULT = "demo@career-navigator.io"
-DEMO_PASSWORD_DEFAULT = "DemoAccount@2026!"
+def assert_not_production() -> None:
+    settings = get_settings()
+    env = os.getenv("ENV", settings.ENVIRONMENT).strip().lower()
+    if env == "production":
+        raise RuntimeError("CRITICAL SECURITY ERROR: Demo account seeding is prohibited in production environment.")
+
+
+DEMO_EMAIL_DEFAULT = "demo@example.com"
+DEMO_PASSWORD_DEFAULT: Optional[str] = None
 DEMO_SLUG_DEFAULT = "alex-chen"
 DEMO_TIMEZONE = "Asia/Kolkata"
 
@@ -99,7 +110,7 @@ async def ensure_catalog_prerequisites(session: AsyncSession) -> Dict[str, Any]:
                 cluster="Information Technology",
                 aliases=["Software Engineer", "Backend Developer"] if code == "SWE" else ["ML Engineer"],
                 overview=overview,
-                status="verified",
+                status="draft",
                 source_url=f"https://www.onetonline.org/find/quick?s={code}",
                 dimension_weights=weights,
                 required_skills=[
@@ -186,17 +197,63 @@ async def ensure_catalog_prerequisites(session: AsyncSession) -> Dict[str, Any]:
     }
 
 
+async def seed_backdated_activity_events(
+    session: AsyncSession,
+    user_id: Any,
+    today_local: Any,
+    now_utc: datetime,
+) -> None:
+    """Seed-only function for generating historical activity ledger events.
+
+    Guarded by environment check: strictly refuses execution in production.
+    """
+    assert_not_production()
+    logger.info("Seeding 7-day continuous activity ledger streak ending today...")
+    activity_plan = [
+        (6, "adaptive_test", f"demo_diagnostic_test_{user_id}"),
+        (5, "roadmap_item", f"demo_rm_item_1_{user_id}"),
+        (4, "roadmap_item", f"demo_rm_item_2_{user_id}"),
+        (3, "roadmap_item", f"demo_rm_item_3_{user_id}"),
+        (2, "roadmap_item", f"demo_rm_item_4_{user_id}"),
+        (1, "interview_session", f"demo_interview_{user_id}"),
+        (0, "roadmap_item", f"demo_daily_task_{user_id}"),
+    ]
+
+    for days_ago, source_type, source_id in activity_plan:
+        event_date = today_local - timedelta(days=days_ago)
+        event_time = now_utc - timedelta(days=days_ago)
+        ev = ActivityEvent(
+            id=uuid4(),
+            user_id=user_id,
+            source_type=source_type,
+            source_id=source_id,
+            occurred_at=event_time,
+            local_date=event_date,
+            tz=DEMO_TIMEZONE,
+            is_demo=True,
+        )
+        session.add(ev)
+    await session.flush()
+
+
 async def seed_demo_account(
     session: AsyncSession,
     email: str = DEMO_EMAIL_DEFAULT,
-    password: str = DEMO_PASSWORD_DEFAULT,
+    password: Optional[str] = DEMO_PASSWORD_DEFAULT,
     slug: str = DEMO_SLUG_DEFAULT,
     force_refresh: bool = False,
 ) -> Dict[str, Any]:
     """Seed or update the comprehensive demo account."""
+    assert_not_production()
+
     clean_email = email.strip().lower()
     now_utc = datetime.now(timezone.utc)
     today_local = compute_local_date(now_utc, DEMO_TIMEZONE)
+
+    if not password:
+        password = os.getenv("DEMO_PASSWORD")
+    if not password:
+        password = secrets.token_urlsafe(16)
 
     # 1. Ensure master prerequisites exist
     prereqs = await ensure_catalog_prerequisites(session)
@@ -221,6 +278,7 @@ async def seed_demo_account(
         user = existing_user
         user.hashed_password = hash_password(password)
         user.is_active = True
+        user.is_demo = True
         user.education_level = "college"
         user.role = "student"
     else:
@@ -232,6 +290,7 @@ async def seed_demo_account(
             role="student",
             education_level="college",
             is_active=True,
+            is_demo=True,
             created_at=now_utc - timedelta(days=14),
             updated_at=now_utc,
         )
@@ -415,6 +474,7 @@ async def seed_demo_account(
             template_version=1,
             title="Software Development Engineer (SDE) Accelerated Roadmap",
             status="active",
+            is_demo=True,
             timezone=DEMO_TIMEZONE,
             hours_per_week=20,
             start_date=now_utc - timedelta(days=14),
@@ -646,32 +706,7 @@ async def seed_demo_account(
     existing_events = res_act.scalars().all()
 
     if not existing_events:
-        logger.info("Seeding 7-day continuous activity ledger streak ending today...")
-        # Day 6 ago to Day 0 (today)
-        activity_plan = [
-            (6, "adaptive_test", f"demo_diagnostic_test_{user.id}"),
-            (5, "roadmap_item", f"demo_rm_item_1_{user.id}"),
-            (4, "roadmap_item", f"demo_rm_item_2_{user.id}"),
-            (3, "roadmap_item", f"demo_rm_item_3_{user.id}"),
-            (2, "roadmap_item", f"demo_rm_item_4_{user.id}"),
-            (1, "interview_session", f"demo_interview_{user.id}"),
-            (0, "roadmap_item", f"demo_daily_task_{user.id}"),
-        ]
-
-        for days_ago, source_type, source_id in activity_plan:
-            event_date = today_local - timedelta(days=days_ago)
-            event_time = now_utc - timedelta(days=days_ago)
-            ev = ActivityEvent(
-                id=uuid4(),
-                user_id=user.id,
-                source_type=source_type,
-                source_id=source_id,
-                occurred_at=event_time,
-                local_date=event_date,
-                tz=DEMO_TIMEZONE,
-            )
-            session.add(ev)
-        await session.flush()
+        await seed_backdated_activity_events(session, user.id, today_local, now_utc)
 
     # 9. Awarded Milestones
     # Ensure all 4 original milestone rules are awarded to demo account
@@ -787,6 +822,7 @@ async def seed_demo_account(
                     level_signal=level,
                     subtopic_scores={"core": score, "advanced": score - 5},
                     summary=f"Demonstrated verified proficiency in {s.name}.",
+                    is_demo=True,
                     created_at=now_utc - timedelta(days=5),
                 )
             )
@@ -800,6 +836,7 @@ async def seed_demo_account(
     portfolio_values = {
         "slug": slug.strip().lower(),
         "is_public": True,
+        "is_demo": True,
         "headline": "Aspiring Software Engineer | Distributed Systems & Backend Enthusiast",
         "about": (
             "Third-year Computer Science student passionate about distributed architectures, "
@@ -898,6 +935,7 @@ async def seed_demo_account(
         "roadmap_title": roadmap.title,
         "portfolio_slug": port.slug,
         "portfolio_public": port.is_public,
+        "password": password,
     }
 
 
@@ -925,7 +963,7 @@ def main() -> None:
                 print("=======================================================")
                 print(f" User ID:            {res['user_id']}")
                 print(f" Email:              {res['email']}")
-                print(f" Password:           {args.password}")
+                print(f" Password:           {res['password']}")
                 print(f" Name:               {res['name']}")
                 print(f" Timezone:           {res['timezone']}")
                 print(f" Holland Code:       {res['holland_code']}")

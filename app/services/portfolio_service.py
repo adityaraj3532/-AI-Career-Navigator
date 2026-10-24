@@ -92,6 +92,7 @@ class PortfolioService:
                 is_persisted=True,
                 slug=portfolio.slug,
                 is_public=portfolio.is_public,
+                is_demo=bool(getattr(portfolio, "is_demo", False)),
                 headline=portfolio.headline,
                 about=portfolio.about,
                 visibility=vis,
@@ -110,6 +111,7 @@ class PortfolioService:
             is_persisted=False,
             slug=default_slug,
             is_public=False,
+            is_demo=bool(getattr(user, "is_demo", False)),
             headline=None,
             about=None,
             visibility=PortfolioVisibility(),
@@ -158,6 +160,7 @@ class PortfolioService:
                 user_id=user.id,
                 slug=slug_val,
                 is_public=req.is_public if req.is_public is not None else False,
+                is_demo=user.is_demo,
                 headline=req.headline,
                 about=req.about,
                 visibility=req.visibility.model_dump() if req.visibility else default_visibility(),
@@ -246,6 +249,7 @@ class PortfolioService:
 
         return PublicPortfolioViewResponse(
             slug=portfolio.slug,
+            is_demo=bool(getattr(portfolio, "is_demo", False)),
             headline=portfolio.headline,
             about=about,
             skills=skills,

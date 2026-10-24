@@ -254,7 +254,7 @@
     {
       "code": "CSWP_SOLIDWORKS",
       "name": "Certified SOLIDWORKS Professional (CSWP)",
-      "issuing_organization": "Dassault Systèmes",
+      "issuing_organization": "Dassault Syst\u00e8mes",
       "description": "Industry benchmark certification validating ability to design and analyze parametric parts and movable assemblies using SOLIDWORKS software.",
       "url": "https://www.solidworks.com/certifications",
       "source_url": "https://www.solidworks.com",
@@ -266,11 +266,7 @@
       "code": "SDE_INTERNSHIP",
       "title": "Software Engineering Summer Intern",
       "domain": "Software Development & Technology",
-      "stipend_range": {
-        "currency": "INR",
-        "min_per_month": 40000,
-        "max_per_month": 120000
-      },
+      "stipend_range": null,
       "duration_months": 2,
       "locations": [
         "Bengaluru",
@@ -287,11 +283,7 @@
       "code": "DATA_ANALYST_INTERN",
       "title": "Business Intelligence & Data Analyst Intern",
       "domain": "Analytics & Business Intelligence",
-      "stipend_range": {
-        "currency": "INR",
-        "min_per_month": 25000,
-        "max_per_month": 60000
-      },
+      "stipend_range": null,
       "duration_months": 3,
       "locations": [
         "Bengaluru",
@@ -307,11 +299,7 @@
       "code": "AI_RESEARCH_INTERN",
       "title": "Machine Learning Research Intern",
       "domain": "Artificial Intelligence & R&D",
-      "stipend_range": {
-        "currency": "INR",
-        "min_per_month": 50000,
-        "max_per_month": 150000
-      },
+      "stipend_range": null,
       "duration_months": 3,
       "locations": [
         "Bengaluru",
@@ -326,11 +314,7 @@
       "code": "PRODUCT_DESIGN_INTERN",
       "title": "Product & UI/UX Design Intern",
       "domain": "Digital Product Design",
-      "stipend_range": {
-        "currency": "INR",
-        "min_per_month": 30000,
-        "max_per_month": 70000
-      },
+      "stipend_range": null,
       "duration_months": 3,
       "locations": [
         "Bengaluru",
@@ -345,11 +329,7 @@
       "code": "CLINICAL_ROTATION_INTERN",
       "title": "Compulsory Rotatory Medical Intern",
       "domain": "Clinical Medicine & Patient Care",
-      "stipend_range": {
-        "currency": "INR",
-        "min_per_month": 25000,
-        "max_per_month": 35000
-      },
+      "stipend_range": null,
       "duration_months": 12,
       "locations": [
         "Teaching Hospitals Across India"
@@ -362,11 +342,7 @@
       "code": "CA_ARTICLESHIP",
       "title": "Chartered Accountancy Practical Trainee (Articleship)",
       "domain": "Auditing, Taxation & Accounting",
-      "stipend_range": {
-        "currency": "INR",
-        "min_per_month": 15000,
-        "max_per_month": 30000
-      },
+      "stipend_range": null,
       "duration_months": 24,
       "locations": [
         "Pan-India with ICAI Chartered Accounting Firms"
@@ -379,11 +355,7 @@
       "code": "MECHANICAL_INTERN",
       "title": "Mechanical Engineering Trainee",
       "domain": "Manufacturing, Automotive & Robotics",
-      "stipend_range": {
-        "currency": "INR",
-        "min_per_month": 20000,
-        "max_per_month": 45000
-      },
+      "stipend_range": null,
       "duration_months": 2,
       "locations": [
         "Pune",

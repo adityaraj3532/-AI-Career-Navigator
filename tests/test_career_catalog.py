@@ -21,7 +21,9 @@ async def _signup_and_login(client: AsyncClient, email: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_draft_careers_hidden_by_default(async_client: AsyncClient, test_storage):
+async def test_draft_careers_hidden_by_default(async_client: AsyncClient, test_storage, monkeypatch):
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ALLOW_DRAFT_CAREERS", False)
     # Ensure all careers are "draft"
     for c in test_storage["careers"].values():
         c.status = "draft"

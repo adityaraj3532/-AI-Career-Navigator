@@ -58,6 +58,11 @@ class ActivityEvent(Base):
         nullable=False,
         default="Asia/Kolkata",
     )
+    is_demo: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
     user = relationship("User", backref="activity_events")
 

@@ -388,8 +388,10 @@ async def test_ownership_isolation(async_client: AsyncClient, test_storage):
 
 
 @pytest.mark.asyncio
-async def test_draft_questions_hidden_by_default(async_client: AsyncClient, test_storage):
+async def test_draft_questions_hidden_by_default(async_client: AsyncClient, test_storage, monkeypatch):
     """When questions are in draft status, starting test returns insufficient verified questions error."""
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ALLOW_DRAFT_QUESTIONS", False)
     # Set all questions to draft
     for q in test_storage["test_question_banks"].values():
         q.status = "draft"

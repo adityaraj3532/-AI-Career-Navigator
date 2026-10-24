@@ -226,6 +226,7 @@ class OwnerPortfolioResponse(BaseModel):
     is_persisted: bool
     slug: str
     is_public: bool
+    is_demo: bool = False
     headline: Optional[str] = None
     about: Optional[str] = None
     visibility: PortfolioVisibility
@@ -252,6 +253,7 @@ class PublicPortfolioViewResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str
+    is_demo: bool = False
     headline: Optional[str] = None
     about: Optional[str] = None
     skills: Optional[List[PublicSkillItem]] = None

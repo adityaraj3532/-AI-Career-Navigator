@@ -374,8 +374,8 @@ def test_seed_demo_account_cli_argument_defaults():
     parser.add_argument("--force-refresh", action="store_true")
 
     args = parser.parse_args([])
-    assert args.email == "demo@career-navigator.io"
-    assert args.password == "DemoAccount@2026!"
+    assert args.email == "demo@example.com"
+    assert args.password is None
     assert args.slug == "alex-chen"
     assert args.force_refresh is False
 

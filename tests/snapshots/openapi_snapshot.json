@@ -5592,6 +5592,11 @@
             "type": "boolean",
             "title": "Is Public"
           },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo",
+            "default": false
+          },
           "headline": {
             "anyOf": [
               {
@@ -6507,6 +6512,11 @@
             "type": "string",
             "title": "Slug"
           },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo",
+            "default": false
+          },
           "headline": {
             "anyOf": [
               {
@@ -7416,6 +7426,11 @@
               }
             ],
             "title": "Target Completion Date"
+          },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo",
+            "default": false
           },
           "total_weeks": {
             "type": "integer",
@@ -8955,6 +8970,11 @@
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
+          },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo",
+            "default": false
           },
           "created_at": {
             "type": "string",

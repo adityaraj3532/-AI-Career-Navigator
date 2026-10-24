@@ -92,6 +92,7 @@ class UserResponse(BaseModel):
     role: str
     education_level: str
     is_active: bool
+    is_demo: bool = False
     created_at: datetime
 
 

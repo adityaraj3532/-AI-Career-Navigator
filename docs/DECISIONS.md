@@ -33,6 +33,7 @@ This document tracks all foundational technology and architecture choices, evalu
 - [ADR-026: Prompt Injection Defense – Separate Untrusted Inputs, Delimiter Neutralization, and Universal `<user_input>` XML Isolation](#adr-026-prompt-injection-defense--separate-untrusted-inputs-delimiter-neutralization-and-universal-user_input-xml-isolation)
 - [ADR-027: Multi-Layer Timeouts, Strict Retry Boundaries, and Deterministic Fallback Matrix](#adr-027-multi-layer-timeouts-strict-retry-boundaries-and-deterministic-fallback-matrix)
 - [ADR-028: Demo Account Seeding Architecture & Realistic Multi-Domain Persona Synthesis](#adr-028-demo-account-seeding-architecture--realistic-multi-domain-persona-synthesis)
+- [ADR-029: Separation of Catalog Verification and Seeding Decoupling](#adr-029-separation-of-catalog-verification-and-seeding-decoupling)
 
 ---
 
@@ -733,6 +734,36 @@ This document tracks all foundational technology and architecture choices, evalu
   - Requires maintaining cross-domain entity alignment when schema additions occur. However, the comprehensive test suite (`tests/test_seed_demo_account.py`) guarantees immediate detection of schema drifts.
 - **Revisit if**:
   - Multi-tenant enterprise environments require dynamic organization-specific demo persona factories.
+
+---
+
+## ADR-029: Separation of Catalog Verification and Seeding Decoupling
+
+- **Options Considered**:
+  - Auto-verifying catalog and curriculum records during initial database seeding via `scripts/setup_database.py`.
+  - Decoupled, human-driven verification CLI (`scripts/verify_records.py`) requiring named human reviewers, keeping initial seeding strictly draft (`status="draft"`).
+- **Choice**: **Decoupled Human-Driven Verification CLI with Strict Draft-Only Seeding and Production Safety Guards**
+- **Reason**:
+  - **Zero Auto-Verification Integrity**:
+    - AI-written or synthetic career catalog items, test questions, and interview questions must never be automatically blessed as `"verified"` by an automated script. Auto-verification creates a false sense of official vetting and risks publishing unverified career paths, outdated salaries, or fabricated requirements to students.
+    - `scripts/setup_database.py` was altered to seed 100% of records in `status="draft"` and clear all reviewer/date fields.
+  - **Accountability & Anti-Automated Reviewer Protection**:
+    - Verification is isolated to `scripts/verify_records.py`.
+    - It enforces `validate_reviewer_name()`: explicitly rejects generic or synthetic identities (such as `system`, `script`, `admin`, `system_verifier`, `bot`, `auto`, `ai`, `root`, `test`, `qa`) and requires minimum name length.
+    - Records the exact human reviewer identifier and UTC timestamp (`verified_at` / `last_verified_at`).
+  - **Fact & Source Grounding**:
+    - Grounding audit enforced across all seed datasets (`career_catalog.json`, `exam_cycles.json`, `careers.json`).
+    - College fees, cutoffs, NIRF ranks, salaries, stipends, and exam dates must be strictly `null` unless corroborated by an explicit verifiable source URL and reference year. Unbacked fields (e.g. internship stipend ranges lacking reference years) were reverted to `None`.
+  - **Separation of Admin & Demo Seed from Production**:
+    - Admin account creation is decoupled into `scripts/create_admin.py` and barred from running in production (`assert_not_production()`). Passwords are never hardcoded or printed to persistent logs; generated securely via `secrets.token_urlsafe(16)` or provided via environment variable. Default domains are restricted to `example.com`.
+    - Demo accounts are explicitly tagged with `is_demo=True` across tables (`users`, `skill_evidence`, `activity_events`, `user_portfolios`, `roadmaps`), allowing public and private API responses to clearly designate demo accounts with a sample-data banner.
+  - **Development Developer Experience**:
+    - While production and verification gates enforce `status == "verified"`, development environments retain `ALLOW_DRAFT_CAREERS=true`, `ALLOW_DRAFT_QUESTIONS=true`, and `ALLOW_DRAFT_ROADMAPS=true` so local engineers can test without manual verification overhead.
+- **Trade-off**:
+  - Requires explicit verification workflows before catalog items become visible in production environments where `ALLOW_DRAFT_*` is disabled.
+- **Revisit if**:
+  - Multi-party digital signature or automated institutional verification pipelines (e.g., college registrar API integrations) are formally integrated.
+
 
 
 

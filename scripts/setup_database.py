@@ -1,8 +1,8 @@
-"""Master Database Setup and Verification Orchestrator.
+"""Master Database Setup and Seeding Orchestrator.
 
 Executes complete, idempotent platform database initialization:
 1. Verifies PostgreSQL and Redis health checks
-2. Runs Alembic migrations up to head (015_create_ai_chat)
+2. Runs Alembic migrations up to head
 3. Seeds RIASEC assessment versions and questions (app/data/seed/assessment_questions.json)
 4. Seeds master skills catalog (app/data/seed/skills_catalog.json)
 5. Seeds comprehensive career catalog (careers, exams, colleges, courses, certificates, internships)
@@ -11,10 +11,11 @@ Executes complete, idempotent platform database initialization:
 8. Seeds roadmap templates, phases, and items (app/data/seed/roadmap_templates.json)
 9. Seeds interview questions (app/data/seed/interview_questions.json)
 10. Seeds milestone rules (app/data/seed/milestone_rules.json)
-11. Verifies and activates catalog entities, questions, and roadmaps
-12. Seeds admin account (admin@career-navigator.io)
-13. Seeds full-spectrum demo student account (demo@career-navigator.io / "Alex Chen")
-14. Validates table row counts and outputs setup report
+11. Seeds realistic demo student account (demo@example.com / "Alex Chen")
+12. Validates table row counts and outputs setup report
+
+INVARIANT: All catalog items, test questions, and interview questions remain in status='draft'.
+No records are ever automatically marked verified during seeding.
 
 Usage:
     python -m scripts.setup_database [--skip-migrations] [--force-refresh-demo]
@@ -25,8 +26,9 @@ import asyncio
 import logging
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from typing import Dict
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from alembic import command
 from alembic.config import Config
@@ -35,7 +37,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory, check_db_health
 from app.core.redis import check_redis_health, close_redis
-from app.core.security import hash_password
 from app.models.user import User
 from app.services.activity_service import seed_milestones
 from scripts.seed_assessment import seed_assessment_data
@@ -46,10 +47,6 @@ from scripts.seed_interview_questions import seed_interview_questions
 from scripts.seed_roadmaps import seed_roadmaps
 from scripts.seed_skills_catalog import seed_skills
 from scripts.seed_test_questions import seed_test_questions
-from scripts.verify_catalog import verify_entities
-from scripts.verify_interview_question import verify_interview_questions
-from scripts.verify_question import verify_questions
-from scripts.verify_roadmap_item import verify_items
 
 logger = logging.getLogger("scripts.setup_database")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -68,33 +65,6 @@ def run_alembic_migrations() -> None:
     logger.info("Alembic migrations successfully applied.")
 
 
-async def ensure_admin_account(session: AsyncSession, email: str, password: str) -> User:
-    """Ensure an active admin account exists idempotently."""
-    clean_email = email.strip().lower()
-    stmt = select(User).where(User.email == clean_email)
-    res = await session.execute(stmt)
-    user = res.scalar_one_or_none()
-
-    if user:
-        user.hashed_password = hash_password(password)
-        user.role = "admin"
-        user.is_active = True
-        logger.info("Admin account '%s' already exists. Updated credentials.", clean_email)
-    else:
-        user = User(
-            email=clean_email,
-            hashed_password=hash_password(password),
-            role="admin",
-            education_level="college",
-            is_active=True,
-        )
-        session.add(user)
-        logger.info("Created new admin account '%s'.", clean_email)
-
-    await session.commit()
-    return user
-
-
 async def generate_table_report(session: AsyncSession) -> Dict[str, int]:
     """Inspect and report row counts for all public tables."""
     res = await session.execute(text("""
@@ -103,48 +73,45 @@ async def generate_table_report(session: AsyncSession) -> Dict[str, int]:
         WHERE table_schema = 'public' 
         ORDER BY table_name;
     """))
-    tables = [r[0] for r in res.fetchall()]
-    report: Dict[str, int] = {}
-    for t in tables:
-        try:
-            cnt = (await session.execute(text(f'SELECT count(*) FROM "{t}"'))).scalar()
-            report[t] = cnt or 0
-        except Exception:
-            report[t] = -1
+    tables = [row[0] for row in res.fetchall()]
+    report = {}
+    for tbl in tables:
+        count_res = await session.execute(text(f"SELECT COUNT(*) FROM {tbl};"))
+        report[tbl] = count_res.scalar() or 0
     return report
 
 
-async def setup_database(force_refresh_demo: bool = True) -> None:
-    """Master entrypoint executing full database setup."""
+async def setup_database(force_refresh_demo: bool = False) -> None:
     print("\n=======================================================")
-    print(" AI CAREER NAVIGATOR – FULL DATABASE INITIALIZATION")
+    print(" AI CAREER NAVIGATOR — DATABASE INITIALIZATION")
     print("=======================================================\n")
 
-    # 1. Health checks
-    logger.info("Checking PostgreSQL and Redis health...")
+    # 1. Connectivity Pre-checks
     db_ok = await check_db_health()
     if not db_ok:
-        logger.error("PostgreSQL is unreachable! Please ensure PostgreSQL is running.")
+        logger.error("Database health check failed. Ensure PostgreSQL is running.")
         sys.exit(1)
-    logger.info("PostgreSQL health check: OK")
+    logger.info("PostgreSQL database connection verified.")
 
     redis_ok = await check_redis_health()
-    logger.info("Redis health check: %s", "OK" if redis_ok else "DEGRADED (Continuing without Redis cache)")
+    if not redis_ok:
+        logger.warning("Redis health check failed. System will operate in memory-fallback mode.")
+    else:
+        logger.info("Redis cache and rate limiter verified.")
 
-    # 3. Seed Master Catalogs
+    # 2. Seed Master Catalogs and Domain Data (All seeded as status='draft')
     async with async_session_factory() as session:
-        # A. Assessment Questions
+        # A. RIASEC Assessment Questions
         p_assess = SEED_DIR / "assessment_questions.json"
         if p_assess.is_file():
-            ver = await seed_assessment_data(session, p_assess)
-            await session.commit()
-            logger.info("Seeded assessment version %d: '%s'", ver.version_number, ver.title)
+            assess_count = await seed_assessment_data(session, p_assess)
+            logger.info("Seeded %d RIASEC questions from %s", assess_count, p_assess.name)
 
         # B. Skills Catalog
         p_skills = SEED_DIR / "skills_catalog.json"
         if p_skills.is_file():
-            sk_count = await seed_skills(session, p_skills)
-            logger.info("Seeded %d skills from %s", sk_count, p_skills.name)
+            skills_count = await seed_skills(session, p_skills)
+            logger.info("Seeded %d skills from %s", skills_count, p_skills.name)
 
         # C. Career Catalog
         p_cat = SEED_DIR / "career_catalog.json"
@@ -181,68 +148,55 @@ async def setup_database(force_refresh_demo: bool = True) -> None:
         await session.commit()
         logger.info("Seeded %d milestone rules", len(m_rules))
 
-        # 4. Verify & Publish Master Data
-        logger.info("Verifying catalog entities, questions, and roadmaps...")
-        reviewer = "system_verifier"
-        await verify_entities(entity_type="all", reviewer=reviewer, verify_all=True)
-        await verify_questions(session, verify_all=True, reviewer=reviewer)
-        await verify_interview_questions(session, reviewer=reviewer, all_questions=True)
-        await verify_items(session, reviewer=reviewer, all_items=True)
-        logger.info("Master data verification complete.")
-
-        # 5. Admin Account
-        admin = await ensure_admin_account(
-            session=session,
-            email="admin@career-navigator.io",
-            password="AdminAccount@2026!",
-        )
-
-        # 6. Comprehensive Demo Student Account
+        # 4. Comprehensive Demo Student Account (demo@example.com)
         logger.info("Seeding realistic demo student account (Alex Chen)...")
         demo_res = await seed_demo_account(
             session=session,
-            email="demo@career-navigator.io",
-            password="DemoAccount@2026!",
+            email="demo@example.com",
             slug="alex-chen",
             force_refresh=force_refresh_demo,
         )
         await session.commit()
         logger.info("Demo account seeded: %s (%s)", demo_res["email"], demo_res["user_id"])
 
-        # 7. Final Table Report
+        # 5. Final Table Report
         report = await generate_table_report(session)
 
     await close_redis()
 
     print("\n=======================================================")
-    print(" DATABASE SETUP AND VERIFICATION COMPLETE!")
+    print(" DATABASE SEEDING COMPLETE (ALL ITEMS IN DRAFT STATUS)")
     print("=======================================================")
-    print(f" Admin Account:      {admin.email} / AdminAccount@2026!")
-    print(f" Demo Student:       {demo_res['email']} / DemoAccount@2026!")
+    print(f" Demo Student:       {demo_res['email']}")
+    print(f" Demo Password:      {demo_res['password']}")
     print(f" Demo Profile:       {demo_res['name']} ({demo_res['timezone']})")
     print(f" Holland Assessment: Code {demo_res['holland_code']} (Status: {demo_res['assessment_status']})")
     print(f" Shortlist:          {', '.join(demo_res['shortlisted_careers'])}")
     print(f" Roadmap:            {demo_res['roadmap_title']}")
     print(f" Public Portfolio:   /v1/portfolio/p/{demo_res['portfolio_slug']}")
     print("-------------------------------------------------------")
+    print(" Note: Admin creation is separated. Run: python -m scripts.create_admin")
+    print(" Note: Verification is separated. Run: python -m scripts.verify_records")
+    print("-------------------------------------------------------")
     print(" Database Table Statistics:")
     for tbl, count in sorted(report.items()):
         if count > 0:
-            print(f"   * {tbl:<36} {count:>6} rows")
+            print(f"   * {tbl:<40} {count:>4} rows")
     print("=======================================================\n")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="AI Career Navigator Database Setup and Verification Orchestrator.")
+    parser = argparse.ArgumentParser(description="Master Database Setup and Verification Orchestrator")
     parser.add_argument("--skip-migrations", action="store_true", help="Skip running Alembic migrations")
-    parser.add_argument("--no-force-demo", action="store_true", help="Do not wipe demo account if already exists")
+    parser.add_argument("--force-refresh-demo", action="store_true", help="Wipe and regenerate demo student account")
     args = parser.parse_args()
 
+    # 1. Run migrations synchronously before starting the asyncio event loop
     if not args.skip_migrations:
         run_alembic_migrations()
 
     asyncio.run(setup_database(
-        force_refresh_demo=not args.no_force_demo,
+        force_refresh_demo=args.force_refresh_demo,
     ))
 
 

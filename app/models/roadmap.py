@@ -296,6 +296,11 @@ class Roadmap(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    is_demo: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

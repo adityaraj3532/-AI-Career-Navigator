@@ -489,6 +489,7 @@ class RoadmapService:
             hours_per_week=roadmap.hours_per_week,
             start_date=roadmap.start_date,
             target_completion_date=roadmap.target_completion_date,
+            is_demo=bool(getattr(roadmap, "is_demo", False)),
             total_weeks=total_weeks,
             completion_percentage=comp_pct,
             total_items=total_items,

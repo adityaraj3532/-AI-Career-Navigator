@@ -313,6 +313,9 @@ async def test_draft_careers_excluded_when_not_allowed(
     test_storage,
     monkeypatch,
 ):
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ALLOW_DRAFT_CAREERS", False)
+
     # Ensure all careers are "draft"
     for c in test_storage["careers"].values():
         c.status = "draft"

@@ -334,7 +334,10 @@ async def test_get_recommendations_auth_and_personalisation(async_client, test_s
 
 
 @pytest.mark.asyncio
-async def test_recommendation_action_lifecycle_and_evidence(async_client, test_storage):
+async def test_recommendation_action_lifecycle_and_evidence(async_client, test_storage, monkeypatch):
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ALLOW_DRAFT_CAREERS", False)
+
     token = await _signup_and_login(async_client, "rec_action_user@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -439,7 +442,10 @@ async def test_recommendation_action_lifecycle_and_evidence(async_client, test_s
 
 
 @pytest.mark.asyncio
-async def test_recommendation_action_validation_and_errors(async_client, test_storage):
+async def test_recommendation_action_validation_and_errors(async_client, test_storage, monkeypatch):
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ALLOW_DRAFT_CAREERS", False)
+
     token = await _signup_and_login(async_client, "rec_err_user@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 

@@ -60,6 +60,7 @@ class RoadmapDetailResponse(BaseModel):
     hours_per_week: float
     start_date: datetime
     target_completion_date: Optional[datetime] = None
+    is_demo: bool = False
     total_weeks: int
     completion_percentage: float
     total_items: int

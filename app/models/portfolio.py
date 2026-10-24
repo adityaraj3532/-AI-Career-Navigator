@@ -46,6 +46,11 @@ class UserPortfolio(Base):
         nullable=False,
         index=True,
     )
+    is_demo: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
     headline: Mapped[Optional[str]] = mapped_column(
         String(160),
         nullable=True,

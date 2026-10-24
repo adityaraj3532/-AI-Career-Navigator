@@ -4,6 +4,73 @@ This document tracks the ongoing operational state of the codebase across engine
 
 ---
 
+## Session: 2026-10-24 (Antigravity) – Hardened Seeding, Human-Only Verification CLI, & Demo Flagging
+
+### Done
+- **Strict Draft Seeding & Auto-Verification Removal (`scripts/setup_database.py`)**:
+  - Removed all automated verification steps (`mark_catalog_verified`, etc.) and admin account creation from `scripts/setup_database.py`.
+  - 100% of newly seeded catalog items (careers, colleges, exams, courses, certificates, internships, exam cycles, test questions, interview questions, roadmap templates) are seeded strictly in `status="draft"` with empty reviewer and verification timestamps.
+  - Alembic migrations run synchronously before starting the asyncio database setup event loop.
+- **Reversion of Existing Database to Draft (`scripts/revert_to_draft.py`)**:
+  - Created and executed live reversion script with `--dry-run` and live modes.
+  - Reverted all 145 live database catalog records to `status="draft"` and cleared reviewer and date fields:
+    - `careers`: 17 -> 17 draft, 0 verified
+    - `colleges`: 6 -> 6 draft, 0 verified
+    - `exams`: 7 -> 7 draft, 0 verified
+    - `courses`: 6 -> 6 draft, 0 verified
+    - `certificates`: 5 -> 5 draft, 0 verified
+    - `internships`: 7 -> 7 draft, 0 verified
+    - `exam_cycles`: 2 -> 2 draft, 0 verified
+    - `test_question_banks`: 60 -> 60 draft, 0 verified
+    - `interview_questions`: 7 -> 7 draft, 0 verified
+    - `template_items`: 28 -> 28 draft, 0 verified
+    - `roadmap_templates`: 2 -> 2 draft, 0 verified
+- **Dedicated Human-Only Verification CLI (`scripts/verify_records.py`)**:
+  - Separate CLI supporting `--entity-type`, `--file` (IDs/codes list or JSON), and `--dry-run`.
+  - Enforces `validate_reviewer_name()`: rejects generic/synthetic names (`system`, `script`, `admin`, `system_verifier`, `bot`, `auto`, `ai`, `root`, `test`, `qa`) and requires human identity.
+  - Records reviewer name and UTC timestamp upon verification.
+- **Seed Content Audit & Grounding**:
+  - Audited `app/data/seed/career_catalog.json`, `exam_cycles.json`, `careers.json`.
+  - College fees, cutoffs, and NIRF ranks are confirmed null.
+  - Exam cycle application dates and exam dates are confirmed null.
+  - Career salary ranges verified to have source URL and year (2026).
+  - Internship stipend ranges lacked reference years: set to `null` in `career_catalog.json` and in PostgreSQL table.
+- **Separated Admin Account CLI (`scripts/create_admin.py`)**:
+  - Decoupled from setup scripts; guarded with `assert_not_production()`.
+  - Default email `admin@example.com`.
+  - Password sourced from `ADMIN_PASSWORD` or generated securely via `secrets.token_urlsafe(16)` and printed to stdout once, never in code or logs.
+  - Legacy `admin@career-navigator.io` deleted from database.
+- **Demo Account Isolation & `is_demo` Flag (`alembic/versions/016_add_is_demo_flag.py`)**:
+  - Added migration `016_add_is_demo_flag.py` adding `is_demo` (boolean, default false) to:
+    - `users` (with index `ix_users_is_demo`)
+    - `skill_evidence`
+    - `activity_events`
+    - `user_portfolios`
+    - `roadmaps`
+  - Exposed `is_demo: bool = False` in Pydantic schemas: `UserResponse`, `PublicPortfolioViewResponse`, `OwnerPortfolioResponse`, `RoadmapDetailResponse`.
+  - `scripts/seed_demo_account.py` guarded with `assert_not_production()`, default email `demo@example.com`, password generated or from `DEMO_PASSWORD`, all demo records tagged with `is_demo=True`.
+  - Added `seed_backdated_activity_events()` guarded by `assert_not_production()`.
+- **Confirmation of Fixes 1 & 2**:
+  - Fix 1: Route `/v1/portfolio/public/{user_id}` confirmed deleted (returns 404); route-walk test and OpenAPI snapshot test verify all endpoints; public slug response contains zero forbidden keys.
+  - Fix 2: Shared LLMGateway factory wired into all services via DI; SDK imports outside `app/llm` banned by AST test; mock interview returns `scoring_method="ai"` and numeric scores calculated solely in code from boolean key-point signals.
+- **Warning Classification (22 warnings in pytest)**:
+  - 1 warning from `starlette/formparsers.py` (`PendingDeprecationWarning: Please use import python_multipart instead`): Harmless upstream third-party deprecation in Starlette/FastAPI.
+  - 20 warnings from `_pytest/unraisableexception.py` (`Exception ignored in AbstractConnection.__del__`): Harmless async cleanup warning in Windows Proactor event loop during test teardown when closing Redis connections.
+  - 1 warning from `test_health.py` (`RuntimeWarning: coroutine Connection._cancel was never awaited`): Harmless cleanup notification during health check mock connection teardown.
+- **Verification**:
+  - All 268 tests in suite pass: **267 passed, 1 skipped** in 59s.
+  - OpenAPI snapshot verified and updated.
+  - Database seed verified with all items in draft and demo account seeded cleanly.
+
+### Active Invariants
+- AI-written or seeded catalog records are always inserted as `status="draft"`; verification requires a named human reviewer via `scripts/verify_records.py`.
+- Admin creation is completely separated from automated seeding and guarded against production environments.
+- Passwords are never hardcoded in source code or persistent logs.
+- `ALLOW_DRAFT_CAREERS`, `ALLOW_DRAFT_QUESTIONS`, and `ALLOW_DRAFT_ROADMAPS` remain configurable in `.env` (default true in dev, false in prod). Tests isolate these flags with monkeypatching.
+- Public portfolio responses strictly contain zero forbidden keys.
+
+---
+
 ## Session: 2026-10-24 (Antigravity) – Security Audit (Fix 6: Security & Architecture Documentation Suite)
 
 ### Done

@@ -462,8 +462,11 @@ async def test_compare_endpoint(async_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_unverified_career_rejected(async_client: AsyncClient, test_storage):
+async def test_unverified_career_rejected(async_client: AsyncClient, test_storage, monkeypatch):
     """Test unverified draft career returns 404 for compatibility and shortlist when drafts are forbidden."""
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ALLOW_DRAFT_CAREERS", False)
+
     draft_id = uuid.uuid4()
     draft_career = Career(
         id=draft_id,
