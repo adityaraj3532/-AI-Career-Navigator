@@ -6,19 +6,11 @@ import {
   RotateCcw
 } from 'lucide-react'
 
-type CareerId = 'software' | 'data' | 'design' | 'ai' | 'product'
+import { type CareerId, type Question, drawQuestions, pickAdaptiveQuestion } from './questionBank'
+import { getAdvice, type Advice } from './api'
 
-type Option = {
-  label: string
-  detail: string
-  scores: Partial<Record<CareerId, number>>
-}
-
-type Question = {
-  title: string
-  subtitle: string
-  options: Option[]
-}
+const RANDOM_COUNT = 5
+const TOTAL_QUESTIONS = 8
 
 const careers: {
   id: CareerId
@@ -70,150 +62,98 @@ const careers: {
   },
 ]
 
-const questions: Question[] = [
-  {
-    title: 'What kind of activity sounds most interesting?',
-    subtitle: 'Choose the activity you would enjoy trying.',
-    options: [
-      { label: 'Building an app or website', detail: 'Create something people can use', scores: { software: 3, ai: 1 } },
-      { label: 'Finding patterns in information', detail: 'Explore numbers and discover insights', scores: { data: 3, ai: 2 } },
-      { label: 'Designing a beautiful interface', detail: 'Make a product easier to use', scores: { design: 3, product: 1 } },
-      { label: 'Solving a real user problem', detail: 'Understand needs and plan a solution', scores: { product: 3, design: 1 } },
-    ],
-  },
-  {
-    title: 'Which challenge would you choose?',
-    subtitle: 'There is no right or wrong answer.',
-    options: [
-      { label: 'Debug a tricky coding problem', detail: 'Find why a program is not working', scores: { software: 3, ai: 1 } },
-      { label: 'Explain what a dataset reveals', detail: 'Turn information into a useful conclusion', scores: { data: 3, ai: 1 } },
-      { label: 'Improve a confusing app screen', detail: 'Make it simpler and clearer', scores: { design: 3, product: 1 } },
-      { label: 'Decide which feature to build first', detail: 'Balance user needs and priorities', scores: { product: 3, software: 1 } },
-    ],
-  },
-  {
-    title: 'What would you like to learn first?',
-    subtitle: 'Pick the topic you are most curious about.',
-    options: [
-      { label: 'Programming and app development', detail: 'Write code and build projects', scores: { software: 3 } },
-      { label: 'SQL, statistics, and data', detail: 'Work with information and evidence', scores: { data: 3, ai: 1 } },
-      { label: 'Visual design and user experience', detail: 'Create clear digital experiences', scores: { design: 3 } },
-      { label: 'AI tools and intelligent systems', detail: 'Explore how AI applications work', scores: { ai: 3, software: 1 } },
-    ],
-  },
-  {
-    title: 'How do you prefer to solve problems?',
-    subtitle: 'Think about what feels natural or enjoyable.',
-    options: [
-      { label: 'Break the problem into logical steps', detail: 'Work through it systematically', scores: { software: 2, ai: 1, data: 1 } },
-      { label: 'Look for patterns and evidence', detail: 'Use information to reach a conclusion', scores: { data: 3, ai: 1 } },
-      { label: 'Sketch ideas and try different layouts', detail: 'Explore visual possibilities', scores: { design: 3 } },
-      { label: 'Discuss the problem and organize a plan', detail: 'Bring people and ideas together', scores: { product: 3 } },
-    ],
-  },
-  {
-    title: 'Which result would make you proud?',
-    subtitle: 'Imagine finishing a personal project.',
-    options: [
-      { label: 'A working app people can use', detail: 'Something functional from start to finish', scores: { software: 3 } },
-      { label: 'A report that reveals an insight', detail: 'A discovery backed by data', scores: { data: 3 } },
-      { label: 'A design people find easy to use', detail: 'A thoughtful, polished experience', scores: { design: 3 } },
-      { label: 'A smart tool that automates a task', detail: 'A useful application powered by AI', scores: { ai: 3, software: 1 } },
-    ],
-  },
-  {
-    title: 'Which work style appeals to you?',
-    subtitle: 'Most careers include a mix of these activities.',
-    options: [
-      { label: 'Focused individual problem solving', detail: 'Spend time building and improving', scores: { software: 2, ai: 1, data: 1 } },
-      { label: 'Research and careful investigation', detail: 'Explore evidence before deciding', scores: { data: 2, ai: 2 } },
-      { label: 'Creative iteration and feedback', detail: 'Try ideas and improve them', scores: { design: 3 } },
-      { label: 'Collaborating and coordinating', detail: 'Help a team move toward a goal', scores: { product: 3 } },
-    ],
-  },
-  {
-    title: 'Which subject or activity do you enjoy most?',
-    subtitle: 'Choose based on your interest, not your grades.',
-    options: [
-      { label: 'Logic, mathematics, or programming', detail: 'Rules, systems, and problem solving', scores: { software: 2, ai: 2 } },
-      { label: 'Numbers, research, and interpretation', detail: 'Understand what the evidence means', scores: { data: 3, ai: 1 } },
-      { label: 'Art, visuals, and human behavior', detail: 'How people see and use things', scores: { design: 3 } },
-      { label: 'Business, teamwork, and planning', detail: 'People, goals, and decisions', scores: { product: 3 } },
-    ],
-  },
-  {
-    title: 'What would you like your work to improve?',
-    subtitle: 'Think about the impact you want to make.',
-    options: [
-      { label: 'Make technology work better', detail: 'Reliable, useful software', scores: { software: 3 } },
-      { label: 'Help people make better decisions', detail: 'Clear insights from data', scores: { data: 3 } },
-      { label: 'Make technology easier for people', detail: 'Simple and accessible experiences', scores: { design: 3 } },
-      { label: 'Find new ways to solve hard problems', detail: 'Experiment with intelligent tools', scores: { ai: 3, product: 1 } },
-    ],
-  },
-]
+const streams: Record<CareerId, { stream: string; subjects: string; degrees: string }> = {
+  software: { stream: 'Science (PCM) with Computer Science', subjects: 'Maths, Physics, Computer Science', degrees: 'B.Tech/BE CSE or IT, BCA, B.Sc Computer Science' },
+  data: { stream: 'Science (PCM) or Commerce with Maths', subjects: 'Maths, Statistics, Economics or CS', degrees: 'B.Sc Statistics/Data Science, BCA, B.Com (Hons) with analytics' },
+  design: { stream: 'Any stream; Arts or Science both work', subjects: 'Fine Arts, Psychology, Computer basics', degrees: 'B.Des (NID/NIFT/UCEED), BFA, B.Sc Multimedia' },
+  ai: { stream: 'Science (PCM) — Maths is essential', subjects: 'Maths, Physics, Computer Science', degrees: 'B.Tech CSE/AI & ML, B.Sc Maths/Data Science' },
+  product: { stream: 'Commerce or Science; Arts also possible', subjects: 'Business Studies, Economics, Maths', degrees: 'BBA, B.Tech + MBA, B.Com, BA Economics' },
+}
+
+function emptyTotals(): Record<CareerId, number> {
+  return { software: 0, data: 0, design: 0, ai: 0, product: 0 }
+}
 
 export default function AssessmentPage() {
+  const [questions, setQuestions] = useState<Question[]>(() => drawQuestions(RANDOM_COUNT))
   const [answers, setAnswers] = useState<number[]>([])
   const [finished, setFinished] = useState(false)
   const [selectedCareer, setSelectedCareer] = useState<CareerId | null>(null)
+  const [advice, setAdvice] = useState<Advice | null>(null)
+  const [adviceLoading, setAdviceLoading] = useState(false)
 
   const currentQuestion = questions[answers.length]
-  const progress = Math.round((answers.length / questions.length) * 100)
+  const progress = Math.round((answers.length / TOTAL_QUESTIONS) * 100)
+
+  function totalsFor(answerList: number[]) {
+    const totals = emptyTotals()
+    answerList.forEach((answer, index) => {
+      const option = questions[index]?.options[answer]
+      if (!option) return
+      for (const [id, value] of Object.entries(option.scores)) totals[id as CareerId] += value ?? 0
+    })
+    return totals
+  }
 
   const scores = careers.map((career) => {
-  const score = questions.reduce((total, question, index) => {
-    const option = question.options[answers[index]]
-    return total + (option?.scores[career.id] ?? 0)
-  }, 0)
+    const score = questions.reduce((total, question, index) => total + (question.options[answers[index]]?.scores[career.id] ?? 0), 0)
+    const maxScore = questions.reduce((total, question) => total + Math.max(...question.options.map((o) => o.scores[career.id] ?? 0)), 0)
+    const matchPercentage = maxScore === 0 ? 0 : Math.round((score / maxScore) * 100)
+    return { ...career, score, matchPercentage }
+  }).sort((a, b) => b.matchPercentage - a.matchPercentage || b.score - a.score)
 
-  const maxScore = questions.reduce((total, question) => {
-    const highestQuestionScore = Math.max(
-      ...question.options.map(
-        (option) => option.scores[career.id] ?? 0
-      )
-    )
-
-    return total + highestQuestionScore
-  }, 0)
-
-  const matchPercentage =
-    maxScore === 0 ? 0 : Math.round((score / maxScore) * 100)
-
-  return {
-    ...career,
-    score,
-    matchPercentage,
-  }
-}).sort((a, b) => b.matchPercentage - a.matchPercentage)
-
-
-
-
-
-    function chooseAnswer(index: number) {
+  function chooseAnswer(index: number) {
     const updatedAnswers = [...answers, index]
     setAnswers(updatedAnswers)
 
-    if (updatedAnswers.length === questions.length) {
-        setFinished(true)
+    if (updatedAnswers.length >= TOTAL_QUESTIONS) {
+      setFinished(true)
+      requestAdvice(updatedAnswers)
+      return
     }
+    // After the random warm-up, ask adaptive questions that split the top matches.
+    if (updatedAnswers.length >= questions.length) {
+      const used = new Set(questions.map((q) => q.id))
+      const next = pickAdaptiveQuestion(used, totalsFor(updatedAnswers))
+      if (next) setQuestions([...questions, next])
+      else { setFinished(true); requestAdvice(updatedAnswers) }
     }
+  }
 
- 
+  async function requestAdvice(answerList: number[]) {
+    setAdvice(null)
+    setAdviceLoading(true)
+    const answered = answerList.map((a, i) => ({ question: questions[i].title, answer: questions[i].options[a].label }))
+    const totals = totalsFor(answerList)
+    const ranked = (Object.keys(totals) as CareerId[]).sort((a, b) => totals[b] - totals[a])
+    try {
+      setAdvice(await getAdvice({ answers: answered, topCareers: ranked.slice(0, 3) }))
+    } finally {
+      setAdviceLoading(false)
+    }
+  }
+
   function goBack() {
     if (finished) {
       setFinished(false)
       setSelectedCareer(null)
+      setAnswers((previous) => previous.slice(0, -1))
       return
     }
-    setAnswers((previous) => previous.slice(0, -1))
+    const nextAnswers = answers.slice(0, -1)
+    setAnswers(nextAnswers)
+    // Drop adaptive questions beyond the one being re-answered.
+    if (questions.length > Math.max(RANDOM_COUNT, nextAnswers.length + 1)) {
+      setQuestions(questions.slice(0, Math.max(RANDOM_COUNT, nextAnswers.length + 1)))
+    }
   }
 
   function restart() {
+    setQuestions(drawQuestions(RANDOM_COUNT))
     setAnswers([])
     setFinished(false)
     setSelectedCareer(null)
+    setAdvice(null)
   }
 
   if (finished) {
@@ -272,6 +212,26 @@ export default function AssessmentPage() {
             })}
           </div>
 
+          <div className="assessment-stream-card">
+            <p className="assessment-eyebrow">SUITABLE STREAM FOR {scores[0].title.toUpperCase()}</p>
+            <h2>{streams[scores[0].id].stream}</h2>
+            <p><strong>Key subjects:</strong> {streams[scores[0].id].subjects}</p>
+            <p><strong>Degree options:</strong> {streams[scores[0].id].degrees}</p>
+          </div>
+
+          <div className="assessment-stream-card">
+            <p className="assessment-eyebrow">
+              {advice?.source === 'ai' ? 'AI CAREER ADVICE' : 'PERSONAL ADVICE'}
+            </p>
+            {adviceLoading && <p>Thinking about your answers…</p>}
+            {advice && (
+              <>
+                <p>{advice.summary}</p>
+                {advice.tips.length > 0 && <ul>{advice.tips.map((tip) => <li key={tip}>{tip}</li>)}</ul>}
+              </>
+            )}
+          </div>
+
           {selectedCareer && (
             <div className="assessment-next-step">
               <div>
@@ -295,7 +255,7 @@ export default function AssessmentPage() {
     <div className="assessment-page">
       <div className="assessment-top">
         <div className="assessment-brand"><span><Sparkles size={19} /></span> Career discovery</div>
-        <span className="assessment-step-label">Question {answers.length + 1} of {questions.length}</span>
+        <span className="assessment-step-label">Question {answers.length + 1} of {TOTAL_QUESTIONS}</span>
       </div>
 
       <div className="assessment-progress-track">
@@ -313,15 +273,15 @@ export default function AssessmentPage() {
 
         <div className="assessment-question-card">
           <div className="assessment-card-heading">
-            <span className="assessment-question-number">0{answers.length + 1}</span>
-            <span className="assessment-eyebrow">YOUR INTERESTS</span>
+            <span className="assessment-question-number">{String(answers.length + 1).padStart(2, '0')}</span>
+            <span className="assessment-eyebrow">{answers.length >= RANDOM_COUNT ? 'NARROWING IT DOWN' : 'YOUR INTERESTS'}</span>
           </div>
-          <h2>{currentQuestion.title}</h2>
-          <p className="assessment-question-subtitle">{currentQuestion.subtitle}</p>
+          <h2>{currentQuestion?.title}</h2>
+          <p className="assessment-question-subtitle">{currentQuestion?.subtitle}</p>
 
           <div className="assessment-options">
-            {currentQuestion.options.map((option, index) => (
-              <button key={option.label} className="assessment-option" onClick={() => chooseAnswer(index)}>
+            {currentQuestion?.options.map((option, index) => (
+              <button key={currentQuestion.id + option.label} className="assessment-option" onClick={() => chooseAnswer(index)}>
                 <span className="assessment-option-letter">{String.fromCharCode(65 + index)}</span>
                 <span className="assessment-option-copy"><strong>{option.label}</strong><small>{option.detail}</small></span>
                 <ArrowRight className="assessment-option-arrow" size={17} />
